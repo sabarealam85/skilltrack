@@ -16,7 +16,7 @@ router.get("/", async (req, res) => {
         training.start_date,
         training.end_date,
         training.assessment_score
-    FROM training
+    FROM public.training
     LEFT JOIN trainees
         ON training.trainee_id = trainees.trainee_id
     ORDER BY training.training_id DESC
@@ -81,7 +81,7 @@ router.delete("/:id", async (req, res) => {
     try {
         const result = await pool.query(
             `
-            DELETE FROM training
+            DELETE FROM public.training
             WHERE training_id = $1
             RETURNING *
             `,
