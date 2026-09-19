@@ -6,7 +6,7 @@ router.get("/", async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT *
-            FROM employers
+            FROM public.employers
             ORDER BY employer_id DESC
         `);
 
