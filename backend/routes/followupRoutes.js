@@ -1,4 +1,4 @@
-const express = require("express");
+﻿const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 
@@ -9,7 +9,7 @@ router.get("/", async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT *
-            FROM followups
+            FROM public.followups
             ORDER BY followup_id DESC
         `);
 
@@ -35,7 +35,7 @@ router.put("/:id", async (req, res) => {
 
         const result = await pool.query(
             `
-            UPDATE followups
+            UPDATE public.followups
             SET status = $1
             WHERE followup_id = $2
             RETURNING *
