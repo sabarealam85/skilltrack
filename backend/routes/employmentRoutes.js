@@ -7,7 +7,7 @@ router.get("/", async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT *
-            FROM employment
+            FROM public.employment
             ORDER BY employment_id DESC
         `);
 
@@ -40,7 +40,7 @@ router.post("/", async (req, res) => {
 
         const result = await pool.query(
             `
-            INSERT INTO employment
+            INSERT INTO public.employment
             (
                 trainee_id,
                 employer,
@@ -81,6 +81,8 @@ router.post("/", async (req, res) => {
         });
     }
 });
+
+
 // PUT - Update employment record
 router.put("/:id", async (req, res) => {
     try {
@@ -98,7 +100,7 @@ router.put("/:id", async (req, res) => {
 
         const result = await pool.query(
             `
-            UPDATE employment
+            UPDATE public.employment
             SET
                 trainee_id = $1,
                 employer = $2,
@@ -145,12 +147,14 @@ router.put("/:id", async (req, res) => {
         });
     }
 });
+
+
 // DELETE - Delete employment record
 router.delete("/:id", async (req, res) => {
     try {
         const result = await pool.query(
             `
-            DELETE FROM employment
+            DELETE FROM public.employment
             WHERE employment_id = $1
             RETURNING *
             `,
