@@ -7,7 +7,7 @@ router.get("/", async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT *
-            FROM interventions
+            FROM public.interventions
             ORDER BY intervention_id DESC
         `);
 
@@ -32,7 +32,7 @@ router.post("/", async (req, res) => {
 
         const result = await pool.query(
             `
-            INSERT INTO interventions
+            INSERT INTO public.interventions
             (
                 intervention_name,
                 description
@@ -70,7 +70,7 @@ router.put("/:id", async (req, res) => {
 
         const result = await pool.query(
             `
-            UPDATE interventions
+            UPDATE public.interventions
             SET
                 intervention_name = $1,
                 description = $2
@@ -109,7 +109,7 @@ router.delete("/:id", async (req, res) => {
     try {
         const result = await pool.query(
             `
-            DELETE FROM interventions
+            DELETE FROM public.interventions
             WHERE intervention_id = $1
             RETURNING *
             `,
