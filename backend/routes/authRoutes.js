@@ -17,7 +17,7 @@ router.post("/register", async (req, res) => {
     }
 
     const existingUser = await pool.query(
-      "SELECT user_id FROM users WHERE email = $1",
+      "SELECT user_id FROM public.users WHERE email = $1",
       [email]
     );
 
@@ -26,12 +26,14 @@ router.post("/register", async (req, res) => {
         message: "Account already exists"
       });
     }
-const hashedPassword = await bcrypt.hash(password, 10);
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const result = await pool.query(
-      `INSERT INTO users (name, email, password)
+      `INSERT INTO public.users (name, email, password)
        VALUES ($1, $2, $3)
        RETURNING user_id, name, email, role`,
-     [name, email, hashedPassword]
+      [name, email, hashedPassword]
     );
 
     res.status(201).json({
@@ -62,45 +64,41 @@ router.post("/login", async (req, res) => {
       });
     }
 
-   const result = await pool.query(
-  `SELECT user_id, name, email, password, role
-   FROM users
-   WHERE email = $1`,
-  [email]
-);
+    const result = await pool.query(
+      `SELECT user_id, name, email, password, role
+       FROM public.users
+       WHERE email = $1`,
+      [email]
+    );
 
-if (result.rows.length === 0) {
-  return res.status(401).json({
-    message: "Invalid email or password"
-  });
-}
-
-const user = result.rows[0];
-
-const passwordMatch = await bcrypt.compare(
-  password,
-  user.password
-);
-
-if (!passwordMatch) {
-  return res.status(401).json({
-    message: "Invalid email or password"
-  });
-}
     if (result.rows.length === 0) {
       return res.status(401).json({
         message: "Invalid email or password"
       });
     }
-res.json({
-  message: "Login successful",
-  user: {
-    user_id: user.user_id,
-    name: user.name,
-    email: user.email,
-    role: user.role
-  }
-});
+
+    const user = result.rows[0];
+
+    const passwordMatch = await bcrypt.compare(
+      password,
+      user.password
+    );
+
+    if (!passwordMatch) {
+      return res.status(401).json({
+        message: "Invalid email or password"
+      });
+    }
+
+    res.json({
+      message: "Login successful",
+      user: {
+        user_id: user.user_id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
 
   } catch (error) {
     console.error("Login error:", error);
