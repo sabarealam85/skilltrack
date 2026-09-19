@@ -6,7 +6,7 @@ router.get("/", async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT *
-            FROM skill_gap
+            FROM public.skill_gap
         `);
 
         res.json(result.rows);
@@ -19,6 +19,8 @@ router.get("/", async (req, res) => {
         });
     }
 });
+
+
 // POST - Add new skill gap
 router.post("/", async (req, res) => {
     try {
@@ -33,7 +35,7 @@ router.post("/", async (req, res) => {
 
         const result = await pool.query(
             `
-            INSERT INTO skill_gap
+            INSERT INTO public.skill_gap
             (
                 trainee_id,
                 required_skill,
@@ -68,6 +70,8 @@ router.post("/", async (req, res) => {
         });
     }
 });
+
+
 // PUT - Update skill gap
 router.put("/:id", async (req, res) => {
     try {
@@ -82,7 +86,7 @@ router.put("/:id", async (req, res) => {
 
         const result = await pool.query(
             `
-            UPDATE skill_gap
+            UPDATE public.skill_gap
             SET
                 trainee_id = $1,
                 required_skill = $2,
@@ -123,12 +127,14 @@ router.put("/:id", async (req, res) => {
         });
     }
 });
+
+
 // DELETE - Delete skill gap
 router.delete("/:id", async (req, res) => {
     try {
         const result = await pool.query(
             `
-            DELETE FROM skill_gap
+            DELETE FROM public.skill_gap
             WHERE gap_id = $1
             RETURNING *
             `,
