@@ -13,7 +13,7 @@ import {
 } from "recharts";
 import "./styles.css";
 
-
+const API_URL = "https://skilltrack-cziu.onrender.com";
 function App(){
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -84,7 +84,7 @@ function App(){
 const handleDeleteTrainee = async (trainee) => {
   try {
     const response = await fetch(
-      `http://localhost:5000/api/trainees/${trainee.id}`,
+      `${API_URL}/api/trainees/${trainee.id}`,
       {
         method: "DELETE"
       }
@@ -106,7 +106,7 @@ const handleDeleteTrainee = async (trainee) => {
   }
 };
 useEffect(() => {
-  fetch("http://localhost:5000/api/training")
+  fetch(`${API_URL}/api/training`)
     .then(res => res.json())
     .then(data => {
       setTraining(data);
@@ -116,7 +116,7 @@ useEffect(() => {
     });
 }, []);
 useEffect(() => {
-  fetch("http://localhost:5000/api/skill-gaps")
+  fetch(`${API_URL}/api/skill-gaps`)
     .then(res => {
       if (!res.ok) {
         throw new Error("Failed to fetch skill gaps");
@@ -131,7 +131,7 @@ useEffect(() => {
     });
 }, []);
 useEffect(() => {
-  fetch("http://localhost:5000/api/employment")
+  fetch(`${API_URL}/api/employment`)
     .then(res => {
       if (!res.ok) {
         throw new Error("Failed to fetch employment");
@@ -146,7 +146,7 @@ useEffect(() => {
     });
 }, []);
 useEffect(() => {
-  fetch("http://localhost:5000/api/followups")
+  fetch(`${API_URL}/api/followups`)
     .then(res => {
       if (!res.ok) {
         throw new Error("Failed to fetch follow-ups");
@@ -162,7 +162,7 @@ useEffect(() => {
 }, []);
 
   useEffect(() => {
-  fetch("http://localhost:5000/api/employers")
+  fetch(`${API_URL}/api/employers`)
     .then(res => {
       if (!res.ok) {
         throw new Error("Failed to fetch employers");
@@ -180,8 +180,8 @@ useEffect(() => {
   const fetchNotifications = async () => {
     try {
       const response = await fetch(
-        "http://localhost:5000/api/notifications"
-      );
+  `${API_URL}/api/notifications`
+);
 
       const data = await response.json();
 
@@ -220,7 +220,7 @@ useEffect(() => {
 }, []);
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/trainees")
+    fetch(`${API_URL}/api/trainees`)
       .then(response => {
         if (!response.ok) {
           throw new Error("Failed to fetch trainees");
@@ -740,8 +740,8 @@ function Trainees({query, trainees, onTraineeAdded,onDeleteTrainee}){
     const isEditing = editingTrainee !== null;
 
     const url = isEditing
-      ? `http://localhost:5000/api/trainees/${traineeId}`
-      : "http://localhost:5000/api/trainees";
+      ? `${API_URL}/api/trainees/${traineeId}`
+     : `${API_URL}/api/trainees`;
 
     const response = await fetch(url, {
       method: isEditing ? "PUT" : "POST",
@@ -1179,8 +1179,8 @@ function Training({trainees, training, setTraining}) {
 
                       const response = await fetch(
                         editingId
-  ? `http://localhost:5000/api/training/${editingId}`
-  : "http://localhost:5000/api/training",
+? `${API_URL}/api/training/${editingId}`
+: `${API_URL}/api/training`,
                         {
                           method: editingId ? "PUT" : "POST",
                           headers: {
@@ -1199,7 +1199,7 @@ function Training({trainees, training, setTraining}) {
                      const newTraining = await response.json();
 
 const updatedTraining = await fetch(
-  "http://localhost:5000/api/training"
+  `${API_URL}/api/training`
 ).then(res => res.json());
 
 setTraining(updatedTraining);
@@ -1389,7 +1389,7 @@ alert("Training record added successfully!");
 
                           const response =
                             await fetch(
-                              `http://localhost:5000/api/training/${item.training_id}`,
+                              `${API_URL}/api/training/${item.training_id}`,
                               {
                                 method: "DELETE"
                               }
@@ -1519,7 +1519,7 @@ const handleDeleteEmployment = async (item) => {
 
     try {
         const response = await fetch(
-            `http://localhost:5000/api/employment/${item.employment_id}`,
+            `${API_URL}/api/employment/${item.employment_id}`,
             {
                 method: "DELETE"
             }
@@ -1548,8 +1548,8 @@ const handleDeleteEmployment = async (item) => {
 
     try {
         const url = editingId
-            ? `http://localhost:5000/api/employment/${editingId}`
-            : "http://localhost:5000/api/employment";
+            ? `${API_URL}/api/employment/${editingId}`
+            : `${API_URL}/api/employment`
 
         const method = editingId ? "PUT" : "POST";
 
@@ -1982,7 +1982,7 @@ function SkillGaps({ trainees = [], skillGaps = [], setSkillGaps }) {
 
   
   useEffect(() => {
-  fetch("http://localhost:5000/api/interventions")
+  fetch(`${API_URL}/api/interventions`)
     .then(res => {
       if (!res.ok) {
         throw new Error("Failed to fetch interventions");
@@ -2051,8 +2051,8 @@ function SkillGaps({ trainees = [], skillGaps = [], setSkillGaps }) {
 
     try {
       const url = editingSkillGap
-        ? `http://localhost:5000/api/skill-gaps/${editingSkillGap.gap_id}`
-        : "http://localhost:5000/api/skill-gaps";
+        ? `${API_URL}/api/skill-gaps/${editingSkillGap.gap_id}`
+        :`${API_URL}/api/skill-gaps`
 
       const response = await fetch(url, {
         method: editingSkillGap ? "PUT" : "POST",
@@ -2142,7 +2142,7 @@ setSkillGaps(prev => {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/skill-gaps/${gap.gap_id}`,
+        `${API_URL}/api/skill-gaps/${gap.gap_id}`,
         {
           method: "DELETE"
         }
@@ -2667,7 +2667,7 @@ setSkillGaps(prev => {
     try {
 
       const response = await fetch(
-        `http://localhost:5000/api/interventions/${item.intervention_id}`,
+        `${API_URL}/api/interventions/${item.intervention_id}`,
         {
           method: "DELETE"
         }
@@ -2791,8 +2791,8 @@ setSkillGaps(prev => {
               const response =
                 await fetch(
                  editingIntervention
-  ? `http://localhost:5000/api/interventions/${editingIntervention.intervention_id}`
-  : "http://localhost:5000/api/interventions",
+  ? `${API_URL}/api/interventions/${editingIntervention.intervention_id}`
+  : `${API_URL}/api/interventions`,
                   {
                     method: editingIntervention ? "PUT" : "POST",
 
@@ -3016,7 +3016,7 @@ function FollowUps({
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/followups/${f.followup_id}`,
+        `${API_URL}/api/followups/${f.followup_id}`,
         {
           method: "PUT",
           headers: {
@@ -3577,8 +3577,8 @@ function SignupPage({ onSignup, onBack }) {
     }
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/register", {
-        method: "POST",
+      const response = await fetch(`${API_URL}/api/auth/register`, {
+  method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
@@ -3694,7 +3694,7 @@ function LoginPage({ onLogin, onBack, onSignup }) {
   }
 
   try {
-    const response = await fetch("http://localhost:5000/api/auth/login", {
+    const response = await fetch(`${API_URL}/api/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"

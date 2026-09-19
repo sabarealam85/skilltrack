@@ -19,7 +19,7 @@ router.get("/", async (req, res) => {
                 training_year,
                 status,
                 confidence
-            FROM trainees
+          FROM public.trainees
             ORDER BY trainee_id
         `);
 
@@ -50,7 +50,7 @@ router.get("/:id", async (req, res) => {
                 training_year,
                 status,
                 confidence
-            FROM trainees
+            FROM public.trainees
             WHERE trainee_id = $1
             `,
             [req.params.id]
@@ -89,7 +89,7 @@ router.post("/", async (req, res) => {
 
         const result = await pool.query(
             `
-            INSERT INTO trainees
+            INSERT INTO public.trainees
             (
                 trainee_id,
                 name,
@@ -146,7 +146,7 @@ router.put("/:id", async (req, res) => {
 
         const result = await pool.query(
             `
-            UPDATE trainees
+           UPDATE public.trainees
             SET
                 name = $1,
                 course = $2,
@@ -195,7 +195,7 @@ router.delete("/:id", async (req, res) => {
     try {
         const result = await pool.query(
             `
-            DELETE FROM trainees
+            DELETE FROM public.trainees
             WHERE trainee_id = $1
             RETURNING *
             `,
