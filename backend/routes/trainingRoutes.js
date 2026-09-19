@@ -7,20 +7,20 @@ const pool = require("../db");
 router.get("/", async (req, res) => {
     try {
         const result = await pool.query(`
-    SELECT
-        training.training_id,
-        training.trainee_id,
-        trainees.name AS trainee_name,
-        training.course,
-        training.course_provider,
-        training.start_date,
-        training.end_date,
-        training.assessment_score
-    FROM public.training
-    LEFT JOIN trainees
-        ON training.trainee_id = trainees.trainee_id
-    ORDER BY training.training_id DESC
-`);
+            SELECT 
+                training.training_id, 
+                training.trainee_id, 
+                trainees.name AS trainee_name, 
+                training.course, 
+                training.course_provider, 
+                training.start_date, 
+                training.end_date, 
+                training.assessment_score 
+            FROM public.training 
+            LEFT JOIN public.trainees 
+                ON training.trainee_id = trainees.trainee_id 
+            ORDER BY training.training_id DESC
+        `);
 
         res.json(result.rows);
 
@@ -32,6 +32,9 @@ router.get("/", async (req, res) => {
         });
     }
 });
+
+
+// Add training record
 router.post("/", async (req, res) => {
     try {
         const {
@@ -45,7 +48,7 @@ router.post("/", async (req, res) => {
 
         const result = await pool.query(
             `
-            INSERT INTO training
+            INSERT INTO public.training
             (
                 trainee_id,
                 course,
@@ -77,6 +80,9 @@ router.post("/", async (req, res) => {
         });
     }
 });
+
+
+// Delete training record
 router.delete("/:id", async (req, res) => {
     try {
         const result = await pool.query(
@@ -107,6 +113,9 @@ router.delete("/:id", async (req, res) => {
         });
     }
 });
+
+
+// Update training record
 router.put("/:id", async (req, res) => {
     try {
         const {
@@ -120,7 +129,7 @@ router.put("/:id", async (req, res) => {
 
         const result = await pool.query(
             `
-            UPDATE training
+            UPDATE public.training
             SET
                 trainee_id = $1,
                 course = $2,
