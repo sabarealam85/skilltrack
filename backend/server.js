@@ -12,19 +12,23 @@ const followupRoutes = require("./routes/followupRoutes");
 const authRoutes = require("./routes/authRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const app = express();
+const authenticateToken = require("./middleware/authMiddleware");
+const requireAdmin = require("./middleware/requireAdmin");
 
 app.use(cors());
 app.use(express.json());
 
-app.use("/api/trainees", traineeRoutes);
-app.use("/api/training", trainingRoutes);
-app.use("/api/employment", employmentRoutes);
-app.use("/api/employers", employersRoutes);
-app.use("/api/skill-gaps", skillGapRoutes);
-app.use("/api/interventions", interventionRoutes);
-app.use("/api/followups", followupRoutes);
+
+app.use("/api/trainees", authenticateToken, traineeRoutes);
+app.use("/api/training", authenticateToken, trainingRoutes);
+app.use("/api/employment", authenticateToken, employmentRoutes);
+app.use("/api/employers", authenticateToken, employersRoutes);
+app.use("/api/skill-gaps", authenticateToken, skillGapRoutes);
+app.use("/api/interventions", authenticateToken, interventionRoutes);
+app.use("/api/followups", authenticateToken, followupRoutes);
 app.use("/api/auth", authRoutes);
-app.use("/api/notifications", notificationRoutes);
+app.use("/api/notifications", authenticateToken, notificationRoutes);
+
 
 app.get("/", (req, res) => {
     res.json({

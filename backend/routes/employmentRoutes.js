@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
+const requireAdmin = require("../middleware/requireAdmin");
 
 // GET all employment records
 router.get("/", async (req, res) => {
@@ -24,7 +25,7 @@ router.get("/", async (req, res) => {
 
 
 // POST - Add new employment record
-router.post("/", async (req, res) => {
+router.post("/", requireAdmin, async (req, res) => {
     try {
         const {
             trainee_id,
@@ -84,7 +85,7 @@ router.post("/", async (req, res) => {
 
 
 // PUT - Update employment record
-router.put("/:id", async (req, res) => {
+router.put("/:id", requireAdmin, async (req, res) => {
     try {
         const {
             trainee_id,
@@ -150,7 +151,7 @@ router.put("/:id", async (req, res) => {
 
 
 // DELETE - Delete employment record
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAdmin, async (req, res) => {
     try {
         const result = await pool.query(
             `

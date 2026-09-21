@@ -1,9 +1,11 @@
 ﻿const express = require("express");
 const router = express.Router();
 const pool = require("../db");
+const requireAdmin = require("../middleware/requireAdmin");
 
 // ========================================
 // GET - All follow-ups
+// Normal user + Admin दोनों देख सकते हैं
 // ========================================
 router.get("/", async (req, res) => {
     try {
@@ -27,8 +29,9 @@ router.get("/", async (req, res) => {
 
 // ========================================
 // PUT - Update follow-up status
+// केवल Admin
 // ========================================
-router.put("/:id", async (req, res) => {
+router.put("/:id", requireAdmin, async (req, res) => {
     try {
 
         const { status } = req.body;

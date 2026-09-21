@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const admin = require("../firebaseAdmin");
 
 // =========================
 // SIGN UP
@@ -29,10 +31,12 @@ router.post("/register", async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // New signup will ALWAYS be a normal user
     const result = await pool.query(
-      `INSERT INTO public.users (name, email, password)
-       VALUES ($1, $2, $3)
-       RETURNING user_id, name, email, role`,
+      `INSERT INTO public.users
+       (name, email, password, role)
+       VALUES ($1, $2, $3, 'user')
+       RETURNING user_id, name, email, role, trainee_id`,
       [name, email, hashedPassword]
     );
 
@@ -65,7 +69,7 @@ router.post("/login", async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT user_id, name, email, password, role
+      `SELECT user_id, name, email, password, role, trainee_id
        FROM public.users
        WHERE email = $1`,
       [email]
@@ -90,13 +94,29 @@ router.post("/login", async (req, res) => {
       });
     }
 
+    // Create JWT token with user's role and trainee mapping
+    const token = jwt.sign(
+      {
+        user_id: user.user_id,
+        email: user.email,
+        role: user.role,
+        trainee_id: user.trainee_id
+      },
+      process.env.JWT_SECRET || "skilltrack-secret-key",
+      {
+        expiresIn: "1d"
+      }
+    );
+
     res.json({
       message: "Login successful",
+      token: token,
       user: {
         user_id: user.user_id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        trainee_id: user.trainee_id
       }
     });
 
@@ -105,6 +125,104 @@ router.post("/login", async (req, res) => {
 
     res.status(500).json({
       message: "Server error"
+    });
+  }
+});
+// =========================
+// GOOGLE / FIREBASE SOCIAL LOGIN
+// =========================
+router.post("/social-login", async (req, res) => {
+  try {
+    const { firebaseToken } = req.body;
+
+    if (!firebaseToken) {
+      return res.status(400).json({
+        message: "Firebase token is required"
+      });
+    }
+
+    // Verify Firebase ID token
+    const decodedToken = await admin.auth.verifyIdToken(firebaseToken);
+
+    const email = decodedToken.email;
+    const name =
+      decodedToken.name ||
+      decodedToken.email?.split("@")[0] ||
+      "SkillTrack User";
+
+    if (!email) {
+      return res.status(400).json({
+        message: "Email not available from Google account"
+      });
+    }
+
+    // Check whether user already exists
+    const existingUser = await pool.query(
+      `
+      SELECT user_id, name, email, role, trainee_id
+      FROM public.users
+      WHERE email = $1
+      `,
+      [email]
+    );
+
+    let user;
+
+    if (existingUser.rows.length > 0) {
+      // Existing user:
+      // Keep the existing role. Never automatically make them admin.
+      user = existingUser.rows[0];
+
+    } else {
+      // New social-login user
+      const result = await pool.query(
+        `
+        INSERT INTO public.users
+        (name, email, password, role)
+        VALUES ($1, $2, $3, 'user')
+        RETURNING user_id, name, email, role, trainee_id
+        `,
+        [
+          name,
+          email,
+          `firebase:${decodedToken.uid}`
+        ]
+      );
+
+      user = result.rows[0];
+    }
+
+    // Create the same SkillTrack JWT used by normal login
+    const token = jwt.sign(
+      {
+        user_id: user.user_id,
+        email: user.email,
+        role: user.role,
+        trainee_id: user.trainee_id || null
+      },
+      process.env.JWT_SECRET || "skilltrack-secret-key",
+      {
+        expiresIn: "1d"
+      }
+    );
+
+    res.json({
+      message: "Social login successful",
+      token,
+      user: {
+        user_id: user.user_id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        trainee_id: user.trainee_id || null
+      }
+    });
+
+  } catch (error) {
+    console.error("Social login error:", error);
+
+    res.status(401).json({
+      message: "Invalid or expired Firebase login"
     });
   }
 });

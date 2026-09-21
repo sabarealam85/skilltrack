@@ -1,4 +1,4 @@
-
+const requireAdmin = require("../middleware/requireAdmin");
 const express = require("express");
 const pool = require("../db");
 
@@ -72,7 +72,7 @@ router.get("/:id", async (req, res) => {
     }
 });
 // Add a new trainee
-router.post("/", async (req, res) => {
+router.post("/", requireAdmin, async (req, res) => {
     try {
         const {
             trainee_id,
@@ -130,7 +130,7 @@ router.post("/", async (req, res) => {
     }
 });
 // Update an existing trainee
-router.put("/:id", async (req, res) => {
+router.put("/:id", requireAdmin, async (req, res) => {
     try {
         const {
             name,
@@ -190,23 +190,64 @@ router.put("/:id", async (req, res) => {
         });
     }
 });
-// Delete a trainee
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAdmin, async (req, res) => {
+    const client = await pool.connect();
+
     try {
-        const result = await pool.query(
+        await client.query("BEGIN");
+
+        const traineeId = req.params.id;
+
+        // Delete all records that depend on this trainee
+        await client.query(
+            `DELETE FROM public.employment WHERE trainee_id = $1`,
+            [traineeId]
+        );
+
+        await client.query(
+            `DELETE FROM public.followups WHERE trainee_id = $1`,
+            [traineeId]
+        );
+
+        await client.query(
+            `DELETE FROM public.outcome_evidence WHERE trainee_id = $1`,
+            [traineeId]
+        );
+
+        await client.query(
+            `DELETE FROM public.skill_gap WHERE trainee_id = $1`,
+            [traineeId]
+        );
+
+        await client.query(
+            `DELETE FROM public.trainee_skills WHERE trainee_id = $1`,
+            [traineeId]
+        );
+
+        await client.query(
+            `DELETE FROM public.training WHERE trainee_id = $1`,
+            [traineeId]
+        );
+
+        // Finally delete the trainee
+        const result = await client.query(
             `
             DELETE FROM public.trainees
             WHERE trainee_id = $1
             RETURNING *
             `,
-            [req.params.id]
+            [traineeId]
         );
 
         if (result.rows.length === 0) {
+            await client.query("ROLLBACK");
+
             return res.status(404).json({
                 error: "Trainee not found"
             });
         }
+
+        await client.query("COMMIT");
 
         res.json({
             message: "Trainee deleted successfully",
@@ -214,12 +255,16 @@ router.delete("/:id", async (req, res) => {
         });
 
     } catch (error) {
+        await client.query("ROLLBACK");
+
         console.error("Error deleting trainee:", error);
 
         res.status(500).json({
             error: "Failed to delete trainee"
         });
+
+    } finally {
+        client.release();
     }
 });
-
 module.exports = router;

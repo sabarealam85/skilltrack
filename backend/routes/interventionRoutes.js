@@ -1,8 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
+const requireAdmin = require("../middleware/requireAdmin");
 
 // GET - Get all interventions
+// Normal user + Admin दोनों देख सकते हैं
 router.get("/", async (req, res) => {
     try {
         const result = await pool.query(`
@@ -22,8 +24,10 @@ router.get("/", async (req, res) => {
     }
 });
 
+
 // POST - Create intervention
-router.post("/", async (req, res) => {
+// केवल Admin
+router.post("/", requireAdmin, async (req, res) => {
     try {
         const {
             intervention_name,
@@ -60,8 +64,10 @@ router.post("/", async (req, res) => {
     }
 });
 
+
 // PUT - Update intervention
-router.put("/:id", async (req, res) => {
+// केवल Admin
+router.put("/:id", requireAdmin, async (req, res) => {
     try {
         const {
             intervention_name,
@@ -104,8 +110,10 @@ router.put("/:id", async (req, res) => {
     }
 });
 
+
 // DELETE - Delete intervention
-router.delete("/:id", async (req, res) => {
+// केवल Admin
+router.delete("/:id", requireAdmin, async (req, res) => {
     try {
         const result = await pool.query(
             `
@@ -135,5 +143,6 @@ router.delete("/:id", async (req, res) => {
         });
     }
 });
+
 
 module.exports = router;

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const pool = require("../db");
+const requireAdmin = require("../middleware/requireAdmin");
 
 // Get all training records
 router.get("/", async (req, res) => {
@@ -35,7 +36,7 @@ router.get("/", async (req, res) => {
 
 
 // Add training record
-router.post("/", async (req, res) => {
+router.post("/", requireAdmin, async (req, res) => {
     try {
         const {
             trainee_id,
@@ -83,7 +84,7 @@ router.post("/", async (req, res) => {
 
 
 // Delete training record
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAdmin, async (req, res) => {
     try {
         const result = await pool.query(
             `
@@ -116,7 +117,7 @@ router.delete("/:id", async (req, res) => {
 
 
 // Update training record
-router.put("/:id", async (req, res) => {
+router.put("/:id", requireAdmin, async (req, res) => {
     try {
         const {
             trainee_id,

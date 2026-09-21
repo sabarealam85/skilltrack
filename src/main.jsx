@@ -1,3 +1,5 @@
+
+
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -7,6 +9,8 @@ import {
   ShieldCheck, FileText, Settings, LogOut, BarChart3, Sparkles,
   UserCheck, Building2, BrainCircuit, Send, Filter, Download
 } from "lucide-react";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { auth } from "./firebase";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip,
   BarChart, Bar, CartesianGrid, PieChart, Pie, Cell
@@ -14,6 +18,17 @@ import {
 import "./styles.css";
 
 const API_URL = "https://skilltrack-cziu.onrender.com";
+const authFetch = (url, options = {}) => {
+  const token = localStorage.getItem("skilltrack_token");
+
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      Authorization: `Bearer ${token}`
+    }
+  });
+};
 function App(){
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -83,7 +98,7 @@ function App(){
 
 const handleDeleteTrainee = async (trainee) => {
   try {
-    const response = await fetch(
+    const response = await authFetch(
       `${API_URL}/api/trainees/${trainee.id}`,
       {
         method: "DELETE"
@@ -106,7 +121,7 @@ const handleDeleteTrainee = async (trainee) => {
   }
 };
 useEffect(() => {
-  fetch(`${API_URL}/api/training`)
+ authFetch(`${API_URL}/api/training`)
     .then(res => res.json())
     .then(data => {
       setTraining(data);
@@ -116,7 +131,7 @@ useEffect(() => {
     });
 }, []);
 useEffect(() => {
-  fetch(`${API_URL}/api/skill-gaps`)
+  authFetch(`${API_URL}/api/skill-gaps`)
     .then(res => {
       if (!res.ok) {
         throw new Error("Failed to fetch skill gaps");
@@ -131,7 +146,7 @@ useEffect(() => {
     });
 }, []);
 useEffect(() => {
-  fetch(`${API_URL}/api/employment`)
+  authFetch(`${API_URL}/api/employment`)
     .then(res => {
       if (!res.ok) {
         throw new Error("Failed to fetch employment");
@@ -146,7 +161,7 @@ useEffect(() => {
     });
 }, []);
 useEffect(() => {
-  fetch(`${API_URL}/api/followups`)
+  authFetch(`${API_URL}/api/followups`)
     .then(res => {
       if (!res.ok) {
         throw new Error("Failed to fetch follow-ups");
@@ -162,7 +177,7 @@ useEffect(() => {
 }, []);
 
   useEffect(() => {
-  fetch(`${API_URL}/api/employers`)
+  authFetch(`${API_URL}/api/employers`)
     .then(res => {
       if (!res.ok) {
         throw new Error("Failed to fetch employers");
@@ -179,7 +194,7 @@ useEffect(() => {
 useEffect(() => {
   const fetchNotifications = async () => {
     try {
-      const response = await fetch(
+      const response = await authFetch(
   `${API_URL}/api/notifications`
 );
 
@@ -220,7 +235,7 @@ useEffect(() => {
 }, []);
 
   useEffect(() => {
-    fetch(`${API_URL}/api/trainees`)
+    authFetch(`${API_URL}/api/trainees`)
       .then(response => {
         if (!response.ok) {
           throw new Error("Failed to fetch trainees");
@@ -298,7 +313,7 @@ useEffect(() => {
     />
   );
 }
-  return (
+  return ( 
     <div className="app">
       <aside className={`sidebar ${mobile ? "open":""}`}>
         <div className="brand">
@@ -318,6 +333,7 @@ useEffect(() => {
           <button><Settings size={18}/> Settings</button>
           <button
   onClick={() => {
+    localStorage.removeItem("skilltrack_token");
     setCurrentUser(null);
     setIsLoggedIn(false);
     setShowUserMenu(false);
@@ -424,24 +440,28 @@ onKeyDown={e => {
   employers={employers}
 />}
     {page==="Trainees" && (
-  <Trainees
+ <Trainees
   query={query}
   trainees={trainees}
   onTraineeAdded={handleTraineeAdded}
   onDeleteTrainee={handleDeleteTrainee}
+  currentUser={currentUser}
 />
 )}
     {page==="Training" && (
   <Training
-    trainees={trainees}
-    training={training}
-    setTraining={setTraining}
-  />
+  trainees={trainees}
+  training={training}
+  setTraining={setTraining}
+  currentUser={currentUser}
+/>
 )}
     {page==="Employment Outcomes" && (
   <Employment
     employment={employment}
     setEmployment={setEmployment}
+    currentUser={currentUser}
+
   />
 )}
    {page === "Skill Gaps" && (
@@ -449,6 +469,7 @@ onKeyDown={e => {
     trainees={trainees}
     skillGaps={skillGaps}
     setSkillGaps={setSkillGaps}
+     currentUser={currentUser}
   />
 )}
    {page==="Follow-up Center" && (
@@ -710,19 +731,23 @@ function Table({rows, onEdit, onDelete}){
               <td>{t.city}</td>
 
               <td>
+  {onEdit && (
   <button
     className="secondary"
     onClick={() => onEdit(t)}
   >
     Edit
   </button>
+)}
 
+{onDelete && (
   <button
     className="secondary"
     onClick={() => onDelete(t)}
   >
     Delete
   </button>
+)}
 </td>
 
             </tr>
@@ -734,74 +759,87 @@ function Table({rows, onEdit, onDelete}){
 }
 function Status({s}){return <span className={`status ${s.toLowerCase().replace(" ","-")}`}><i/>{s}</span>}
 
-function Trainees({query, trainees, onTraineeAdded,onDeleteTrainee}){
+function Trainees({
+  query,
+  trainees,
+  onTraineeAdded,
+  onDeleteTrainee,
+  currentUser
+}) {
+  const isAdmin = currentUser?.role === "admin";
+
   const handleSaveTrainee = async () => {
-  try {
-    const isEditing = editingTrainee !== null;
+    try {
+      const isEditing = editingTrainee !== null;
 
-    const url = isEditing
-      ? `${API_URL}/api/trainees/${traineeId}`
-     : `${API_URL}/api/trainees`;
+      const url = isEditing
+        ? `${API_URL}/api/trainees/${traineeId}`
+        : `${API_URL}/api/trainees`;
 
-    const response = await fetch(url, {
-      method: isEditing ? "PUT" : "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        trainee_id: traineeId,
-        name: traineeName,
-        course: traineeCourse,
-        district: traineeDistrict,
-        provider: traineeProvider,
-        gender: traineeGender,
-        age: Number(traineeAge),
-        training_year: Number(trainingYear),
-        status: traineeStatus,
-        confidence: Number(traineeConfidence)
-      })
-    });
+      const response = await authFetch(url, {
+        method: isEditing ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          trainee_id: traineeId,
+          name: traineeName,
+          course: traineeCourse,
+          district: traineeDistrict,
+          provider: traineeProvider,
+          gender: traineeGender,
+          age: Number(traineeAge),
+          training_year: Number(trainingYear),
+          status: traineeStatus,
+          confidence: Number(traineeConfidence)
+        })
+      });
 
-    if (!response.ok) {
-      throw new Error(
+      if (!response.ok) {
+        throw new Error(
+          isEditing
+            ? "Failed to update trainee"
+            : "Failed to save trainee"
+        );
+      }
+
+      const savedTrainee = await response.json();
+
+      onTraineeAdded(savedTrainee);
+
+      alert(
         isEditing
-          ? "Failed to update trainee"
-          : "Failed to save trainee"
+          ? "Trainee successfully updated!"
+          : "Trainee successfully added!"
       );
+
+      setShowForm(false);
+      setEditingTrainee(null);
+
+    } catch (error) {
+      console.error(error);
+      alert("ERROR: " + error.message);
     }
+  };
 
-    const savedTrainee = await response.json();
-    onTraineeAdded(savedTrainee);
-    alert(
-      isEditing
-        ? "Trainee successfully updated!"
-        : "Trainee successfully added!"
-    );
-
-    setShowForm(false);
-    setEditingTrainee(null);
-
-  } catch (error) {
-    console.error(error);
-    alert("ERROR: " + error.message);
-  }
-};
   const [showForm, setShowForm] = useState(false);
   const [editingTrainee, setEditingTrainee] = useState(null);
+
   useEffect(() => {
-  if (editingTrainee) {
-    setTraineeId(editingTrainee.id);
-    setTraineeName(editingTrainee.name);
-    setTraineeCourse(editingTrainee.course);
-    setTraineeDistrict(editingTrainee.city);
-    setTraineeProvider(editingTrainee.provider || "");
-    setTraineeGender(editingTrainee.gender || "");
-    setTraineeAge(editingTrainee.age || "");
-    setTrainingYear(editingTrainee.trainingYear || "");
-    setTraineeStatus(editingTrainee.status);
-    setTraineeConfidence(editingTrainee.progress || "");
-  }
-}, [editingTrainee]);
+    if (editingTrainee) {
+      setTraineeId(editingTrainee.id);
+      setTraineeName(editingTrainee.name);
+      setTraineeCourse(editingTrainee.course);
+      setTraineeDistrict(editingTrainee.city);
+      setTraineeProvider(editingTrainee.provider || "");
+      setTraineeGender(editingTrainee.gender || "");
+      setTraineeAge(editingTrainee.age || "");
+      setTrainingYear(editingTrainee.trainingYear || "");
+      setTraineeStatus(editingTrainee.status);
+      setTraineeConfidence(editingTrainee.progress || "");
+    }
+  }, [editingTrainee]);
+
   const [traineeId, setTraineeId] = useState("");
   const [traineeName, setTraineeName] = useState("");
   const [traineeCourse, setTraineeCourse] = useState("");
@@ -810,8 +848,9 @@ function Trainees({query, trainees, onTraineeAdded,onDeleteTrainee}){
   const [traineeGender, setTraineeGender] = useState("");
   const [traineeAge, setTraineeAge] = useState("");
   const [trainingYear, setTrainingYear] = useState("");
-const [traineeStatus, setTraineeStatus] = useState("");
-const [traineeConfidence, setTraineeConfidence] = useState("");
+  const [traineeStatus, setTraineeStatus] = useState("");
+  const [traineeConfidence, setTraineeConfidence] = useState("");
+
   const filtered = useMemo(
     () =>
       trainees.filter(t =>
@@ -819,17 +858,19 @@ const [traineeConfidence, setTraineeConfidence] = useState("");
           .toLowerCase()
           .includes(query.toLowerCase())
       ),
-    [query,trainees]
+    [query, trainees]
   );
 
   return (
     <div className="content">
+
       <PageIntro
         title="Trainee digital twin"
         text="A consent-based longitudinal profile linking training, assessment, employment and follow-up."
       />
 
       <div className="toolbar">
+
         <button className="secondary">
           <Filter size={16} /> Filters
         </button>
@@ -838,148 +879,222 @@ const [traineeConfidence, setTraineeConfidence] = useState("");
           <Download size={16} /> Export
         </button>
 
-       <button
-  className="primary"
-  onClick={() => setShowForm(true)}
->
-  + Add Trainee
-</button>
+        {/* ADD BUTTON - ADMIN ONLY */}
+        {isAdmin && (
+          <button
+            className="primary"
+            onClick={() => {
+              setEditingTrainee(null);
+              setShowForm(true);
+            }}
+          >
+            + Add Trainee
+          </button>
+        )}
 
         <span className="count">
           {filtered.length} of 12,480 shown
         </span>
+
       </div>
-      {showForm && (
-  <div className="modal-overlay">
-    <div className="modal-card">
-    <h3>{editingTrainee ? "Edit Trainee" : "Add New Trainee"}</h3>
-<p>Yahan hum trainee ki details fill karenge.</p>
 
-<div className="form-group">
-  <label>Trainee ID</label>
-  <input
-    type="text"
-    placeholder="Example: ST1013"
-    value={traineeId}
-    onChange={(e) => setTraineeId(e.target.value)}
-  />
-</div>
 
-<div className="form-group">
-  <label>Name</label>
-  <input
-    type="text"
-    placeholder="Enter trainee name"
-    value={traineeName}
-    onChange={(e) => setTraineeName(e.target.value)}
-  />
-</div>
-<div className="form-group">
-  <label>Course</label>
-  <input
-    type="text"
-    placeholder="Enter course name"
-    value={traineeCourse}
-    onChange={(e) => setTraineeCourse(e.target.value)}
-  />
-</div>
-<div className="form-group">
-  <label>District</label>
-  <input
-    type="text"
-    placeholder="Enter district"
-    value={traineeDistrict}
-    onChange={(e) => setTraineeDistrict(e.target.value)}
-  />
-</div>
-<div className="form-group">
-  <label>Provider</label>
-  <input
-    type="text"
-    placeholder="Enter training provider"
-    value={traineeProvider}
-    onChange={(e) => setTraineeProvider(e.target.value)}
-  />
-</div>
-<div className="form-group">
-  <label>Gender</label>
-  <input
-    type="text"
-    placeholder="Enter gender"
-    value={traineeGender}
-    onChange={(e) => setTraineeGender(e.target.value)}
-  />
-</div>
-<div className="form-group">
-  <label>Age</label>
-  <input
-    type="number"
-    placeholder="Enter age"
-    value={traineeAge}
-    onChange={(e) => setTraineeAge(e.target.value)}
-  />
-</div>
-<div className="form-group">
-  <label>Training Year</label>
-  <input
-    type="number"
-    placeholder="Example: 2026"
-    value={trainingYear}
-    onChange={(e) => setTrainingYear(e.target.value)}
-  />
-</div>
-<div className="form-group">
-  <label>Status</label>
-  <input
-    type="text"
-    placeholder="Example: Employed"
-    value={traineeStatus}
-    onChange={(e) => setTraineeStatus(e.target.value)}
-  />
-</div>
-<div className="form-group">
-  <label>Confidence</label>
-  <input
-    type="number"
-    placeholder="Example: 85"
-    value={traineeConfidence}
-    onChange={(e) => setTraineeConfidence(e.target.value)}
-  />
-</div>
-<button
-  className="primary"
-  onClick={handleSaveTrainee}
->
-  {editingTrainee ? "Save Changes" : "Save Trainee"}
-</button>
-    <button
-      className="secondary"
-      onClick={() => setShowForm(false)}
-    >
-      Close
-    </button>
-  </div>
-  </div>
-)}
+      {/* FORM - ADMIN ONLY */}
+      {isAdmin && showForm && (
+        <div className="modal-overlay">
+          <div className="modal-card">
+
+            <h3>
+              {editingTrainee
+                ? "Edit Trainee"
+                : "Add New Trainee"}
+            </h3>
+
+            <p>
+              Yahan hum trainee ki details fill karenge.
+            </p>
+
+            <div className="form-group">
+              <label>Trainee ID</label>
+              <input
+                type="text"
+                placeholder="Example: ST1013"
+                value={traineeId}
+                onChange={(e) =>
+                  setTraineeId(e.target.value)
+                }
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Name</label>
+              <input
+                type="text"
+                placeholder="Enter trainee name"
+                value={traineeName}
+                onChange={(e) =>
+                  setTraineeName(e.target.value)
+                }
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Course</label>
+              <input
+                type="text"
+                placeholder="Enter course name"
+                value={traineeCourse}
+                onChange={(e) =>
+                  setTraineeCourse(e.target.value)
+                }
+              />
+            </div>
+
+            <div className="form-group">
+              <label>District</label>
+              <input
+                type="text"
+                placeholder="Enter district"
+                value={traineeDistrict}
+                onChange={(e) =>
+                  setTraineeDistrict(e.target.value)
+                }
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Provider</label>
+              <input
+                type="text"
+                placeholder="Enter training provider"
+                value={traineeProvider}
+                onChange={(e) =>
+                  setTraineeProvider(e.target.value)
+                }
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Gender</label>
+              <input
+                type="text"
+                placeholder="Enter gender"
+                value={traineeGender}
+                onChange={(e) =>
+                  setTraineeGender(e.target.value)
+                }
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Age</label>
+              <input
+                type="number"
+                placeholder="Enter age"
+                value={traineeAge}
+                onChange={(e) =>
+                  setTraineeAge(e.target.value)
+                }
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Training Year</label>
+              <input
+                type="number"
+                placeholder="Example: 2026"
+                value={trainingYear}
+                onChange={(e) =>
+                  setTrainingYear(e.target.value)
+                }
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Status</label>
+              <input
+                type="text"
+                placeholder="Example: Employed"
+                value={traineeStatus}
+                onChange={(e) =>
+                  setTraineeStatus(e.target.value)
+                }
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Confidence</label>
+              <input
+                type="number"
+                placeholder="Example: 85"
+                value={traineeConfidence}
+                onChange={(e) =>
+                  setTraineeConfidence(e.target.value)
+                }
+              />
+            </div>
+
+            <button
+              className="primary"
+              onClick={handleSaveTrainee}
+            >
+              {editingTrainee
+                ? "Save Changes"
+                : "Save Trainee"}
+            </button>
+
+            <button
+              className="secondary"
+              onClick={() => {
+                setShowForm(false);
+                setEditingTrainee(null);
+              }}
+            >
+              Close
+            </button>
+
+          </div>
+        </div>
+      )}
+
+
       <Card
         title="Trainee directory"
         subtitle="Unified identifiers across programmes"
       >
-       <Table
-  rows={filtered}
-  onEdit={(trainee) => {
-    setEditingTrainee(trainee);
-    setShowForm(true);
-  }}
-  onDelete={onDeleteTrainee}
-/>
+
+        <Table
+          rows={filtered}
+
+        
+          onEdit={
+            isAdmin
+              ? (trainee) => {
+                  setEditingTrainee(trainee);
+                  setShowForm(true);
+                }
+              : undefined
+          }
+
+          onDelete={
+            isAdmin
+              ? onDeleteTrainee
+              : undefined
+          }
+        />
+
       </Card>
+
 
       <div className="grid three">
         {filtered.slice(0, 3).map(t => (
-          <TraineeCard t={t} key={t.id} />
+          <TraineeCard
+            t={t}
+            key={t.id}
+          />
         ))}
       </div>
+
     </div>
   );
 }
@@ -987,7 +1102,13 @@ function TraineeCard({t}){return <div className="card trainee-card"><div classNa
 
 function PageIntro({title,text}){return <section className="page-intro"><div><p className="eyebrow">SKILLTRACK MODULE</p><h2>{title}</h2><p>{text}</p></div><div className="intro-icon"><Sparkles size={28}/></div></section>}
 
-function Training({trainees, training, setTraining}) {
+function Training({
+  trainees,
+  training,
+  setTraining,
+  currentUser
+}) {
+  const isAdmin = currentUser?.role === "admin";
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
@@ -1025,15 +1146,18 @@ function Training({trainees, training, setTraining}) {
       />
 
       {/* ADD TRAINING BUTTON */}
-      <button
-        className="btn primary"
-        onClick={() => {
-          resetForm();
-          setShowForm(true);
-        }}
-      >
-        + Add Training
-      </button>
+      {/* ADD TRAINING BUTTON */}
+{isAdmin && (
+  <button
+    className="btn primary"
+    onClick={() => {
+      resetForm();
+      setShowForm(true);
+    }}
+  >
+    + Add Training
+  </button>
+)}
 
 
       {/* POPUP */}
@@ -1177,7 +1301,7 @@ function Training({trainees, training, setTraining}) {
                   onClick={async () => {
                     try {
 
-                      const response = await fetch(
+                      const response = await authFetch(
                         editingId
 ? `${API_URL}/api/training/${editingId}`
 : `${API_URL}/api/training`,
@@ -1198,7 +1322,7 @@ function Training({trainees, training, setTraining}) {
 
                      const newTraining = await response.json();
 
-const updatedTraining = await fetch(
+const updatedTraining = await authFetch(
   `${API_URL}/api/training`
 ).then(res => res.json());
 
@@ -1350,6 +1474,7 @@ alert("Training record added successfully!");
                   <td>
 
                     {/* EDIT */}
+                    {isAdmin && (
                     <button
                       className="btn"
                       onClick={() => {
@@ -1378,9 +1503,10 @@ alert("Training record added successfully!");
                     >
                       Edit
                     </button>
-
+                    )}
 
                     {/* DELETE */}
+                    {isAdmin && (
                     <button
                       className="btn danger"
                       onClick={async () => {
@@ -1388,7 +1514,7 @@ alert("Training record added successfully!");
                         try {
 
                           const response =
-                            await fetch(
+                            await authFetch(
                               `${API_URL}/api/training/${item.training_id}`,
                               {
                                 method: "DELETE"
@@ -1423,6 +1549,7 @@ alert("Training record added successfully!");
                     >
                       Delete
                     </button>
+                    )}
 
                   </td>
 
@@ -1441,7 +1568,12 @@ alert("Training record added successfully!");
     </div>
   );
 }
-function Employment({employment = [], setEmployment}){
+function Employment({
+  employment,
+  setEmployment,
+  currentUser
+}) {
+  const isAdmin = currentUser?.role === "admin";
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -1518,7 +1650,7 @@ const handleDeleteEmployment = async (item) => {
     }
 
     try {
-        const response = await fetch(
+        const response = await authFetch(
             `${API_URL}/api/employment/${item.employment_id}`,
             {
                 method: "DELETE"
@@ -1553,7 +1685,7 @@ const handleDeleteEmployment = async (item) => {
 
         const method = editingId ? "PUT" : "POST";
 
-        const response = await fetch(url, {
+        const response = await authFetch(url, {
             method: method,
             headers: {
                 "Content-Type": "application/json"
@@ -1631,7 +1763,7 @@ const handleDeleteEmployment = async (item) => {
         justifyContent: "flex-end",
         marginBottom: "16px"
       }}>
-
+{isAdmin && (
         <button
           className="btn primary"
           onClick={() => {
@@ -1641,6 +1773,7 @@ const handleDeleteEmployment = async (item) => {
         >
           + Add Employment
         </button>
+)}
 
       </div>
 
@@ -1718,7 +1851,7 @@ const handleDeleteEmployment = async (item) => {
 
       
 
-{showForm && (
+{isAdmin && showForm && (
   <div style={{
     position: "fixed",
     top: 0,
@@ -1942,13 +2075,16 @@ const handleDeleteEmployment = async (item) => {
                       : "—"}
                   </td>
                  <td>
+                  {isAdmin && (
     <button
         className="btn"
         onClick={() => handleEditEmployment(item)}
     >
         Edit
     </button>
-
+                  
+                  )}
+                  {isAdmin && (
     <button
         className="btn"
         onClick={() => handleDeleteEmployment(item)}
@@ -1956,6 +2092,8 @@ const handleDeleteEmployment = async (item) => {
     >
         Delete
     </button>
+                  )}
+                           
 </td>
 
                 </tr>
@@ -1974,7 +2112,13 @@ const handleDeleteEmployment = async (item) => {
   );
 }
 
-function SkillGaps({ trainees = [], skillGaps = [], setSkillGaps }) {
+function SkillGaps({
+  trainees = [],
+  skillGaps = [],
+  setSkillGaps,
+  currentUser
+}) {
+  const isAdmin = currentUser?.role === "admin";
   const [showIntervention, setShowIntervention] = useState(false);
   const [showCohort, setShowCohort] = useState(false);
   const [interventions, setInterventions] = useState([]);
@@ -1982,7 +2126,7 @@ function SkillGaps({ trainees = [], skillGaps = [], setSkillGaps }) {
 
   
   useEffect(() => {
-  fetch(`${API_URL}/api/interventions`)
+  authFetch(`${API_URL}/api/interventions`)
     .then(res => {
       if (!res.ok) {
         throw new Error("Failed to fetch interventions");
@@ -1999,6 +2143,10 @@ function SkillGaps({ trainees = [], skillGaps = [], setSkillGaps }) {
 
   const [showSkillForm, setShowSkillForm] = useState(false);
   const [editingSkillGap, setEditingSkillGap] = useState(null);
+  // Future Skill Recommendation
+const [recommendationData, setRecommendationData] = useState(null);
+const [recommendationLoading, setRecommendationLoading] = useState(false);
+const [selectedRecommendationTrainee, setSelectedRecommendationTrainee] = useState("");
 
   const [form, setForm] = useState({
     trainee_id: "",
@@ -2054,7 +2202,7 @@ function SkillGaps({ trainees = [], skillGaps = [], setSkillGaps }) {
         ? `${API_URL}/api/skill-gaps/${editingSkillGap.gap_id}`
         :`${API_URL}/api/skill-gaps`
 
-      const response = await fetch(url, {
+      const response = await authFetch(url, {
         method: editingSkillGap ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json"
@@ -2141,7 +2289,7 @@ setSkillGaps(prev => {
     }
 
     try {
-      const response = await fetch(
+      const response = await authFetch(
         `${API_URL}/api/skill-gaps/${gap.gap_id}`,
         {
           method: "DELETE"
@@ -2179,6 +2327,7 @@ setSkillGaps(prev => {
       >
 
         <div style={{ marginBottom: "15px" }}>
+          {isAdmin && (
           <button
             className="primary"
             onClick={() => {
@@ -2198,9 +2347,10 @@ setSkillGaps(prev => {
           >
             + Add skill gap
           </button>
+          )}
         </div>
 
-       {showSkillForm && (
+       {isAdmin && showSkillForm && (
   <div className="modal-overlay">
 
     <div className="modal">
@@ -2456,7 +2606,7 @@ setSkillGaps(prev => {
                       </td>
 
                       <td>
-
+{isAdmin && (
                         <button
                           className="outline"
                           onClick={() =>
@@ -2465,7 +2615,8 @@ setSkillGaps(prev => {
                         >
                           Edit
                         </button>
-
+)}
+{isAdmin && (
                         <button
                           className="outline"
                           style={{ marginLeft: "6px" }}
@@ -2475,6 +2626,7 @@ setSkillGaps(prev => {
                         >
                           Delete
                         </button>
+)}
 
                       </td>
 
@@ -2556,7 +2708,7 @@ setSkillGaps(prev => {
               <p>
                 {cloudGapCount} trainees show a measurable gap.
               </p>
-
+{isAdmin && (
               <button
                 className="primary"
                 onClick={() =>
@@ -2565,6 +2717,7 @@ setSkillGaps(prev => {
               >
                 Create intervention
               </button>
+  )}
 
             </div>
 
@@ -2641,6 +2794,7 @@ setSkillGaps(prev => {
                 ).toLocaleDateString("en-IN")}
               </td>
               <td>
+       {isAdmin && (         
   <button
   className="outline"
   onClick={() => {
@@ -2650,7 +2804,8 @@ setSkillGaps(prev => {
 >
   Edit
 </button>
-
+       )}
+{isAdmin && (
   <button
   className="outline"
   style={{ marginLeft: "6px" }}
@@ -2666,7 +2821,7 @@ setSkillGaps(prev => {
 
     try {
 
-      const response = await fetch(
+      const response = await authFetch(
         `${API_URL}/api/interventions/${item.intervention_id}`,
         {
           method: "DELETE"
@@ -2703,6 +2858,7 @@ setSkillGaps(prev => {
 >
   Delete
 </button>
+)}
 </td>
 
             </tr>
@@ -2715,7 +2871,7 @@ setSkillGaps(prev => {
   </div>
 </Card>
 
-     {showIntervention && (
+   {isAdmin && showIntervention && (
   <div className="modal-overlay">
 
     <div className="modal">
@@ -2789,7 +2945,7 @@ setSkillGaps(prev => {
             try {
 
               const response =
-                await fetch(
+                await authFetch(
                  editingIntervention
   ? `${API_URL}/api/interventions/${editingIntervention.intervention_id}`
   : `${API_URL}/api/interventions`,
@@ -3015,7 +3171,7 @@ function FollowUps({
     const newStatus = e.target.value;
 
     try {
-      const response = await fetch(
+      const response = await authFetch(
         `${API_URL}/api/followups/${f.followup_id}`,
         {
           method: "PUT",
@@ -3342,51 +3498,60 @@ function LandingPage({ onLogin }) {
 
       <nav className="landing-nav">
 
-  <div className="landing-logo">
-    <div className="landing-logo-icon">
-      <BrainCircuit size={24} />
-    </div>
+        <div className="landing-logo">
+          <div className="landing-logo-icon">
+            <BrainCircuit size={24} />
+          </div>
 
-    <div>
-      <strong>SkillTrack</strong>
-      <span>Skilling Outcomes Intelligence</span>
-    </div>
-  </div>
+          <div>
+            <strong>SkillTrack</strong>
+            <span>Skilling Outcomes Intelligence</span>
+          </div>
+        </div>
 
-  <div className="landing-nav-links">
-    <button
-      onClick={() =>
-        document
-          .getElementById("features")
-          ?.scrollIntoView({ behavior: "smooth" })
-      }
-    >
-      Features
-    </button>
+        <div className="landing-nav-links">
 
-    <button
-      onClick={() =>
-        document
-          .querySelector(".landing-how")
-          ?.scrollIntoView({ behavior: "smooth" })
-      }
-    >
-      How it works
-    </button>
+          <button
+            onClick={() =>
+              document
+                .getElementById("features")
+                ?.scrollIntoView({ behavior: "smooth" })
+            }
+          >
+            Features
+          </button>
 
-    <button
-      className="landing-login-button"
-      onClick={onLogin}
-    >
-      Login
-      <ChevronRight size={16} />
-    </button>
-  </div>
+          <button
+            onClick={() =>
+              document
+                .querySelector(".landing-how")
+                ?.scrollIntoView({ behavior: "smooth" })
+            }
+          >
+            How it works
+          </button>
 
-</nav>
+          <button
+            className="landing-login-button"
+            onClick={onLogin}
+          >
+            Login
+            <ChevronRight size={16} />
+          </button>
+
+        </div>
+
+      </nav>
+
+
+      {/* =====================================================
+          HERO
+          ===================================================== */}
 
       <section className="landing-hero">
+
         <div className="landing-hero-content">
+
           <span className="landing-badge">
             <Sparkles size={15} />
             Intelligent skilling outcomes platform
@@ -3404,8 +3569,13 @@ function LandingPage({ onLogin }) {
           </p>
 
           <div className="landing-actions">
-            <button className="primary" onClick={onLogin}>
-              Get Started <ChevronRight size={18} />
+
+            <button
+              className="primary"
+              onClick={onLogin}
+            >
+              Get Started
+              <ChevronRight size={18} />
             </button>
 
             <button
@@ -3418,147 +3588,1238 @@ function LandingPage({ onLogin }) {
             >
               Explore Features
             </button>
+
           </div>
+
         </div>
+
+
+        {/* DASHBOARD PREVIEW */}
 
         <div className="landing-dashboard-preview">
-          <div className="preview-header">
-            <div>
-              <span>Programme Overview</span>
-              <strong>SkillTrack Dashboard</strong>
-            </div>
-            <BarChart3 size={22} />
-          </div>
 
-          <div className="preview-stats">
-            <div>
-              <span>Active Trainees</span>
-              <b>1,248</b>
-            </div>
+  {/* DASHBOARD HEADER */}
 
-            <div>
-              <span>Employment Rate</span>
-              <b>72.4%</b>
-            </div>
+  <div className="preview-dashboard-header">
 
-            <div>
-              <span>Skill Gaps</span>
-              <b>186</b>
-            </div>
-          </div>
+    <div className="preview-brand">
 
-          <div className="preview-chart">
-            <div className="chart-line chart-line-one"></div>
-            <div className="chart-line chart-line-two"></div>
-            <div className="chart-line chart-line-three"></div>
-          </div>
+      <div className="preview-brand-icon">
+        <BarChart3 size={20} />
+      </div>
+
+      <div>
+        <span>Programme Overview</span>
+        <strong>SkillTrack Dashboard</strong>
+      </div>
+
+    </div>
+
+    <div className="preview-live">
+      <i></i>
+      LIVE DATA
+    </div>
+
+  </div>
+
+
+  {/* KPI CARDS */}
+
+  <div className="preview-kpis">
+
+    <div className="preview-kpi kpi-blue">
+
+      <div className="kpi-top">
+        <span>Active Trainees</span>
+        <Users size={17} />
+      </div>
+
+      <strong>1,248</strong>
+
+      <small>
+        <b>↑ 12%</b> vs last period
+      </small>
+
+    </div>
+
+
+    <div className="preview-kpi kpi-green">
+
+      <div className="kpi-top">
+        <span>Employment Rate</span>
+        <BriefcaseBusiness size={17} />
+      </div>
+
+      <strong>72.4%</strong>
+
+      <small>
+        <b>↑ 8.2%</b> vs last period
+      </small>
+
+    </div>
+
+
+    <div className="preview-kpi kpi-purple">
+
+      <div className="kpi-top">
+        <span>Skill Gaps</span>
+        <Target size={17} />
+      </div>
+
+      <strong>186</strong>
+
+      <small>
+        <b>↓ 15%</b> improvement
+      </small>
+
+    </div>
+
+
+    <div className="preview-kpi kpi-orange">
+
+      <div className="kpi-top">
+        <span>Programme Impact</span>
+        <TrendingUp size={17} />
+      </div>
+
+      <strong>4.2/5</strong>
+
+      <small>
+        <b>↑ 0.6</b> vs last period
+      </small>
+
+    </div>
+
+  </div>
+
+
+  {/* MAIN GRAPH AREA */}
+
+  <div className="preview-main-grid">
+
+    {/* EMPLOYMENT GRAPH */}
+
+    <div className="preview-panel employment-panel">
+
+      <div className="panel-heading">
+
+        <div>
+          <strong>Employment Outcomes</strong>
+          <span>Trainee placement trend over time</span>
         </div>
+
+        <button>
+          Last 12 Months
+          <ChevronRight size={13} />
+        </button>
+
+      </div>
+
+
+      <div className="employment-chart">
+
+        <div className="chart-y-labels">
+          <span>1000</span>
+          <span>750</span>
+          <span>500</span>
+          <span>250</span>
+          <span>0</span>
+        </div>
+
+
+        <div className="chart-area">
+
+          <div className="chart-grid-line line-1"></div>
+          <div className="chart-grid-line line-2"></div>
+          <div className="chart-grid-line line-3"></div>
+          <div className="chart-grid-line line-4"></div>
+
+
+          {/* Animated bars */}
+
+          <div className="chart-bars">
+
+            <i style={{height:"35%"}}></i>
+            <i style={{height:"42%"}}></i>
+            <i style={{height:"48%"}}></i>
+            <i style={{height:"55%"}}></i>
+            <i style={{height:"53%"}}></i>
+            <i style={{height:"64%"}}></i>
+            <i style={{height:"69%"}}></i>
+            <i style={{height:"75%"}}></i>
+            <i style={{height:"71%"}}></i>
+            <i style={{height:"83%"}}></i>
+            <i style={{height:"91%"}}></i>
+
+          </div>
+
+
+          {/* Animated trend */}
+
+          <div className="trend-line">
+            <span></span>
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div className="chart-months">
+
+        <span>Apr</span>
+        <span>May</span>
+        <span>Jun</span>
+        <span>Jul</span>
+        <span>Aug</span>
+        <span>Sep</span>
+        <span>Oct</span>
+        <span>Nov</span>
+        <span>Dec</span>
+        <span>Jan</span>
+        <span>Feb</span>
+
+      </div>
+
+
+      <div className="chart-legend">
+
+        <span>
+          <i className="legend-blue"></i>
+          Employed
+        </span>
+
+        <span>
+          <i className="legend-purple"></i>
+          Self-employed
+        </span>
+
+        <span>
+          <i className="legend-green"></i>
+          Apprenticeship
+        </span>
+
+      </div>
+
+    </div>
+
+
+    {/* EMPLOYMENT DISTRIBUTION */}
+
+    <div className="preview-panel distribution-panel">
+
+      <div className="panel-heading">
+
+        <div>
+          <strong>Employment Distribution</strong>
+          <span>Current cohort</span>
+        </div>
+
+        <Users size={17} />
+
+      </div>
+
+
+      <div className="donut-area">
+
+        <div className="donut-chart">
+
+          <div className="donut-center">
+            <strong>1,248</strong>
+            <span>Trainees</span>
+          </div>
+
+        </div>
+
+
+        <div className="donut-list">
+
+          <div>
+            <i className="dot-blue"></i>
+            <span>Employed</span>
+            <b>72%</b>
+          </div>
+
+          <div>
+            <i className="dot-purple"></i>
+            <span>Self-employed</span>
+            <b>12%</b>
+          </div>
+
+          <div>
+            <i className="dot-green"></i>
+            <span>Apprenticeship</span>
+            <b>8%</b>
+          </div>
+
+          <div>
+            <i className="dot-orange"></i>
+            <span>Seeking</span>
+            <b>8%</b>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  {/* LOWER DASHBOARD */}
+
+  <div className="preview-bottom-grid">
+
+
+    {/* WAGE */}
+
+    <div className="preview-panel wage-panel">
+
+      <div className="panel-heading">
+
+        <div>
+          <strong>Wage Progression</strong>
+          <span>Average monthly wage</span>
+        </div>
+
+        <TrendingUp size={17} />
+
+      </div>
+
+
+      <div className="wage-chart">
+
+        <div className="wage-line"></div>
+
+        <span className="wage-point point-1"></span>
+        <span className="wage-point point-2"></span>
+        <span className="wage-point point-3"></span>
+        <span className="wage-point point-4"></span>
+        <span className="wage-point point-5"></span>
+
+      </div>
+
+
+      <div className="wage-result">
+        ₹22,500
+      </div>
+
+    </div>
+
+
+    {/* SKILL GAPS */}
+
+    <div className="preview-panel skill-panel">
+
+      <div className="panel-heading">
+
+        <div>
+          <strong>Top Skill Gaps</strong>
+          <span>Assessment & employer feedback</span>
+        </div>
+
+        <Target size={17} />
+
+      </div>
+
+
+      <div className="skill-progress-list">
+
+        <div>
+          <span>Communication <b>42</b></span>
+          <i>
+            <em style={{width:"84%"}}></em>
+          </i>
+        </div>
+
+        <div>
+          <span>Digital Literacy <b>34</b></span>
+          <i>
+            <em style={{width:"68%"}}></em>
+          </i>
+        </div>
+
+        <div>
+          <span>Problem Solving <b>28</b></span>
+          <i>
+            <em style={{width:"56%"}}></em>
+          </i>
+        </div>
+
+        <div>
+          <span>Teamwork <b>21</b></span>
+          <i>
+            <em style={{width:"42%"}}></em>
+          </i>
+        </div>
+
+      </div>
+
+    </div>
+
+
+    {/* ACTIVITY */}
+
+    <div className="preview-panel activity-panel">
+
+      <div className="panel-heading">
+
+        <div>
+          <strong>Recent Activity</strong>
+          <span>Latest programme updates</span>
+        </div>
+
+      </div>
+
+
+      <div className="activity-list">
+
+        <div>
+          <i className="activity-blue">
+            <Users size={13} />
+          </i>
+
+          <span>
+            <b>New trainee enrolled</b>
+            2 hours ago
+          </span>
+        </div>
+
+
+        <div>
+          <i className="activity-red">
+            <BriefcaseBusiness size={13} />
+          </i>
+
+          <span>
+            <b>Employment updated</b>
+            5 hours ago
+          </span>
+        </div>
+
+
+        <div>
+          <i className="activity-purple">
+            <Target size={13} />
+          </i>
+
+          <span>
+            <b>Skill assessment completed</b>
+            1 day ago
+          </span>
+        </div>
+
+
+        <div>
+          <i className="activity-green">
+            <TrendingUp size={13} />
+          </i>
+
+          <span>
+            <b>Follow-up submitted</b>
+            1 day ago
+          </span>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  {/* DASHBOARD FOOTER */}
+
+  <div className="preview-insight">
+
+    <div>
+      <strong>
+        Better data. Better decisions. Greater impact.
+      </strong>
+
+      <span>
+        SkillTrack connects training with real-world outcomes.
+      </span>
+    </div>
+
+    <div className="insight-arrow">
+      <TrendingUp size={18} />
+    </div>
+
+  </div>
+
+</div>
+
       </section>
 
-      <section id="features" className="landing-features">
+
+      {/* =====================================================
+          FEATURES
+          ===================================================== */}
+
+      <section
+        id="features"
+        className="landing-features"
+      >
+
         <div className="landing-section-heading">
+
           <span>CORE CAPABILITIES</span>
-          <h2>Everything after training, in one place.</h2>
+
+          <h2>
+            Everything after training, in one place.
+          </h2>
+
           <p>
             Connect trainee data, employment outcomes and skill intelligence
             to understand the real impact of skilling programmes.
           </p>
+
         </div>
 
-        <div className="landing-feature-grid">
+<div className="landing-feature-grid">
 
-          <div className="landing-feature-card">
-            <Users size={25} />
-            <h3>Trainee Lifecycle</h3>
-            <p>
-              Track trainees from enrolment and training through employment
-              and long-term outcomes.
-            </p>
-          </div>
+  {/* TRAINEE */}
 
-          <div className="landing-feature-card">
-            <BriefcaseBusiness size={25} />
-            <h3>Employment Outcomes</h3>
-            <p>
-              Monitor employment type, employers, joining dates, wages and
-              retention.
-            </p>
-          </div>
+  <div className="landing-feature-card feature-blue">
 
-          <div className="landing-feature-card">
-            <Target size={25} />
-            <h3>Skill Gap Intelligence</h3>
-            <p>
-              Identify skill gaps and connect them with targeted training
-              interventions.
-            </p>
-          </div>
+    <div className="feature-card-top">
+      <div className="feature-icon">
+        <Users size={25} />
+      </div>
 
-          <div className="landing-feature-card">
-            <TrendingUp size={25} />
-            <h3>Programme Impact</h3>
-            <p>
-              Understand employment, wage and retention outcomes across
-              different training programmes.
-            </p>
-          </div>
-        </div>
+      <span className="feature-number">01</span>
+    </div>
+
+    <h3>Trainee Lifecycle</h3>
+
+    <p>
+      Track every trainee from enrolment and training
+      to certification, employment and long-term outcomes.
+    </p>
+
+    <div className="feature-mini-data">
+      <strong>1,248+</strong>
+      <span>Trainees tracked</span>
+    </div>
+
+    <div className="feature-bottom">
+      <span>Complete journey</span>
+      <ChevronRight size={15} />
+    </div>
+
+  </div>
+
+
+  {/* EMPLOYMENT */}
+
+  <div className="landing-feature-card feature-green">
+
+    <div className="feature-card-top">
+      <div className="feature-icon">
+        <BriefcaseBusiness size={25} />
+      </div>
+
+      <span className="feature-number">02</span>
+    </div>
+
+    <h3>Employment Outcomes</h3>
+
+    <p>
+      Monitor employment type, employers, joining dates,
+      wages, retention and career progression.
+    </p>
+
+    <div className="feature-mini-data">
+      <strong>72.4%</strong>
+      <span>Employment rate</span>
+    </div>
+
+    <div className="feature-bottom">
+      <span>Outcome tracking</span>
+      <ChevronRight size={15} />
+    </div>
+
+  </div>
+
+
+  {/* SKILL GAP */}
+
+  <div className="landing-feature-card feature-purple">
+
+    <div className="feature-card-top">
+      <div className="feature-icon">
+        <Target size={25} />
+      </div>
+
+      <span className="feature-number">03</span>
+    </div>
+
+    <h3>Skill Gap Intelligence</h3>
+
+    <p>
+      Identify missing skills and connect assessment
+      results with targeted training interventions.
+    </p>
+
+    <div className="feature-mini-data">
+      <strong>186</strong>
+      <span>Skill gaps identified</span>
+    </div>
+
+    <div className="feature-bottom">
+      <span>Skill intelligence</span>
+      <ChevronRight size={15} />
+    </div>
+
+  </div>
+
+
+  {/* PROGRAMME IMPACT */}
+
+  <div className="landing-feature-card feature-orange">
+
+    <div className="feature-card-top">
+      <div className="feature-icon">
+        <TrendingUp size={25} />
+      </div>
+
+      <span className="feature-number">04</span>
+    </div>
+
+    <h3>Programme Impact</h3>
+
+    <p>
+      Understand employment, wage and retention outcomes
+      across different training programmes.
+    </p>
+
+    <div className="feature-mini-data">
+      <strong>4.2/5</strong>
+      <span>Impact score</span>
+    </div>
+
+    <div className="feature-bottom">
+      <span>Impact intelligence</span>
+      <ChevronRight size={15} />
+    </div>
+
+  </div>
+
+</div>
       </section>
 
-      <section className="landing-how">
-        <div className="landing-section-heading">
-          <span>HOW IT WORKS</span>
-          <h2>From training data to actionable insight.</h2>
-        </div>
 
-        <div className="landing-steps">
-          <div>
-            <b>01</b>
-            <h3>Collect</h3>
-            <p>Bring trainee, training and outcome information together.</p>
-          </div>
+      {/* =====================================================
+          OUTCOME INTELLIGENCE
+          ===================================================== */}
 
-          <div>
-            <b>02</b>
-            <h3>Connect</h3>
-            <p>Link training records with employment and follow-up data.</p>
-          </div>
+      {/* =====================================================
+    OUTCOME INTELLIGENCE
+    ===================================================== */}
 
-          <div>
-            <b>03</b>
-            <h3>Understand</h3>
-            <p>Identify trends, skill gaps and programme outcomes.</p>
-          </div>
+<section className="landing-impact">
 
-          <div>
-            <b>04</b>
-            <h3>Act</h3>
-            <p>Use insights to design better training interventions.</p>
-          </div>
-        </div>
-      </section>
+  <div className="landing-impact-heading">
+    <span>OUTCOME INTELLIGENCE</span>
 
-      <section className="landing-cta">
+    <h2>
+      See what happens
+      <em> after training.</em>
+    </h2>
+
+    <p>
+      SkillTrack connects training, employment and skill data
+      to create a clearer picture of long-term skilling outcomes.
+    </p>
+  </div>
+
+
+  <div className="landing-outcome-dashboard">
+
+    {/* LEFT SIDE */}
+
+    <div className="outcome-summary">
+
+      <div className="outcome-summary-top">
         <div>
-          <span>READY TO GET STARTED?</span>
-          <h2>Turn training data into meaningful outcomes.</h2>
+          <span>Overall programme outcome</span>
+          <strong>72.4%</strong>
         </div>
 
-        <button className="primary" onClick={onLogin}>
-          Enter SkillTrack <ChevronRight size={18} />
-        </button>
-      </section>
+        <div className="outcome-growth">
+          +8.2%
+          <small>outcome trend</small>
+        </div>
+      </div>
 
-      <footer className="landing-footer">
+
+      <div className="outcome-progress">
+
+        <div className="progress-label">
+          <span>Employment</span>
+          <b>72.4%</b>
+        </div>
+
+        <div className="progress-track">
+          <i style={{ width: "72.4%" }}></i>
+        </div>
+
+      </div>
+
+
+      <div className="outcome-progress">
+
+        <div className="progress-label">
+          <span>Retention</span>
+          <b>64%</b>
+        </div>
+
+        <div className="progress-track">
+          <i style={{ width: "64%" }}></i>
+        </div>
+
+      </div>
+
+
+      <div className="outcome-progress">
+
+        <div className="progress-label">
+          <span>Skill readiness</span>
+          <b>69%</b>
+        </div>
+
+        <div className="progress-track">
+          <i style={{ width: "69%" }}></i>
+        </div>
+
+      </div>
+
+
+      <div className="outcome-mini-stats">
+
         <div>
-          <strong>SkillTrack</strong>
-          <span>Skilling Outcomes Intelligence</span>
+          <Users size={18} />
+          <strong>1,248+</strong>
+          <span>Trainees</span>
         </div>
+
+        <div>
+          <Target size={18} />
+          <strong>186</strong>
+          <span>Skill gaps</span>
+        </div>
+
+      </div>
+
+    </div>
+
+
+    {/* RIGHT SIDE */}
+
+    <div className="outcome-chart-panel">
+
+      <div className="outcome-chart-header">
+
+        <div>
+          <span>Employment outcomes</span>
+          <strong>Outcome distribution</strong>
+        </div>
+
+        <BarChart3 size={20} />
+
+      </div>
+
+
+      <div className="outcome-chart">
+
+        <div className="outcome-y-axis">
+          <span>100%</span>
+          <span>75%</span>
+          <span>50%</span>
+          <span>25%</span>
+          <span>0%</span>
+        </div>
+
+
+        <div className="outcome-bars">
+
+          <div className="outcome-bar-item">
+            <div className="outcome-bar-value">72%</div>
+            <div
+              className="outcome-bar"
+              style={{ height: "72%" }}
+            ></div>
+            <span>Employed</span>
+          </div>
+
+
+          <div className="outcome-bar-item">
+            <div className="outcome-bar-value">12%</div>
+            <div
+              className="outcome-bar"
+              style={{ height: "12%" }}
+            ></div>
+            <span>Self-employed</span>
+          </div>
+
+
+          <div className="outcome-bar-item">
+            <div className="outcome-bar-value">8%</div>
+            <div
+              className="outcome-bar"
+              style={{ height: "8%" }}
+            ></div>
+            <span>Apprenticeship</span>
+          </div>
+
+
+          <div className="outcome-bar-item">
+            <div className="outcome-bar-value">8%</div>
+            <div
+              className="outcome-bar"
+              style={{ height: "8%" }}
+            ></div>
+            <span>Seeking</span>
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div className="outcome-chart-footer">
+
+        <span>
+          <i></i>
+          Current cohort
+        </span>
+
+        <span>
+          Based on programme outcome indicators
+        </span>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+      {/* =====================================================
+          HOW IT WORKS
+          ===================================================== */}
+{/* =====================================================
+    HOW IT WORKS
+    ===================================================== */}
+
+<section className="landing-how">
+
+  <div className="landing-section-heading how-heading">
+
+    <span>HOW IT WORKS</span>
+
+    <h2>
+      From training data to
+      <em> actionable insight.</em>
+    </h2>
+
+    <p>
+      SkillTrack follows the trainee journey from training to
+      real-world outcomes, turning disconnected records into
+      useful intelligence.
+    </p>
+
+  </div>
+
+
+  <div className="journey-track">
+
+
+    {/* STEP 01 */}
+
+    <div className="journey-item">
+
+      <div className="journey-number">
+        01
+      </div>
+
+      <div className="journey-icon">
+        <Users size={24} />
+      </div>
+
+      <div className="journey-content">
+
+        <span className="journey-label">
+          DATA COLLECTION
+        </span>
+
+        <h3>
+          Collect
+        </h3>
 
         <p>
-          © 2026 SkillTrack. Built for smarter skilling outcomes.
+          Bring trainee, training, attendance and assessment
+          information together in one connected record.
         </p>
-      </footer>
+
+        <div className="journey-tag">
+          ✓ Unified trainee data
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div className="journey-connector">
+      <span></span>
+    </div>
+
+
+    {/* STEP 02 */}
+
+    <div className="journey-item">
+
+      <div className="journey-number">
+        02
+      </div>
+
+      <div className="journey-icon">
+        <BriefcaseBusiness size={24} />
+      </div>
+
+      <div className="journey-content">
+
+        <span className="journey-label">
+          OUTCOME CONNECTION
+        </span>
+
+        <h3>
+          Connect
+        </h3>
+
+        <p>
+          Link training records with employment, employers,
+          wages, retention and follow-up information.
+        </p>
+
+        <div className="journey-tag">
+          ✓ Longitudinal outcomes
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div className="journey-connector">
+      <span></span>
+    </div>
+
+
+    {/* STEP 03 */}
+
+    <div className="journey-item">
+
+      <div className="journey-number">
+        03
+      </div>
+
+      <div className="journey-icon">
+        <BrainCircuit size={24} />
+      </div>
+
+      <div className="journey-content">
+
+        <span className="journey-label">
+          INTELLIGENCE
+        </span>
+
+        <h3>
+          Understand
+        </h3>
+
+        <p>
+          Identify employment trends, skill gaps and programme
+          performance using connected outcome information.
+        </p>
+
+        <div className="journey-tag">
+          ✓ Actionable intelligence
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div className="journey-connector">
+      <span></span>
+    </div>
+
+
+    {/* STEP 04 */}
+
+    <div className="journey-item">
+
+      <div className="journey-number">
+        04
+      </div>
+
+      <div className="journey-icon">
+        <Target size={24} />
+      </div>
+
+      <div className="journey-content">
+
+        <span className="journey-label">
+          ACTION
+        </span>
+
+        <h3>
+          Act
+        </h3>
+
+        <p>
+          Use insights to design targeted interventions,
+          improve training and strengthen future outcomes.
+        </p>
+
+        <div className="journey-tag">
+          ✓ Better interventions
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  {/* BOTTOM JOURNEY MESSAGE */}
+
+  <div className="journey-result">
+
+    <div className="journey-result-icon">
+      <TrendingUp size={22} />
+    </div>
+
+    <div>
+      <strong>
+        From fragmented records to outcome intelligence
+      </strong>
+
+      <span>
+        One connected journey. Better visibility. Smarter action.
+      </span>
+    </div>
+
+  </div>
+
+</section>
+
+
+      {/* =====================================================
+          CTA
+          ===================================================== */}
+
+     {/* =====================================================
+    FINAL CTA
+    ===================================================== */}
+
+<section className="landing-cta">
+
+  <div className="cta-glow cta-glow-one"></div>
+  <div className="cta-glow cta-glow-two"></div>
+
+  <div className="cta-content">
+
+    <span className="cta-label">
+      READY TO GET STARTED?
+    </span>
+
+    <h2>
+      Turn training data into
+      <span> meaningful outcomes.</span>
+    </h2>
+
+    <p>
+      Explore SkillTrack and see how connected trainee,
+      employment and skill data can support better
+      skilling decisions.
+    </p>
+
+    <div className="cta-actions">
+
+      <button
+        className="primary cta-main-button"
+        onClick={onLogin}
+      >
+        Enter SkillTrack
+        <ChevronRight size={18} />
+      </button>
+
+      <button
+        className="cta-secondary-button"
+        onClick={() =>
+          document
+            .getElementById("features")
+            ?.scrollIntoView({ behavior: "smooth" })
+        }
+      >
+        Explore capabilities
+      </button>
+
+    </div>
+
+  </div>
+
+
+  {/* CTA MINI INSIGHTS */}
+
+  <div className="cta-insights">
+
+    <div className="cta-insight-card">
+
+      <div className="cta-insight-icon">
+        <Users size={19} />
+      </div>
+
+      <div>
+        <strong>1,248+</strong>
+        <span>Trainees tracked</span>
+      </div>
+
+    </div>
+
+
+    <div className="cta-insight-card">
+
+      <div className="cta-insight-icon">
+        <TrendingUp size={19} />
+      </div>
+
+      <div>
+        <strong>72.4%</strong>
+        <span>Employment outcome</span>
+      </div>
+
+    </div>
+
+
+    <div className="cta-insight-card">
+
+      <div className="cta-insight-icon">
+        <BrainCircuit size={19} />
+      </div>
+
+      <div>
+        <strong>186</strong>
+        <span>Skill gaps identified</span>
+      </div>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+{/* =====================================================
+    FOOTER
+    ===================================================== */}
+
+<footer className="landing-footer">
+
+  <div className="footer-main">
+
+    <div className="footer-brand-block">
+
+      <div className="footer-brand-logo">
+        <BrainCircuit size={20} />
+      </div>
+
+      <div>
+        <strong>SkillTrack</strong>
+
+        <span>
+          Skilling Outcomes Intelligence
+        </span>
+      </div>
+
+    </div>
+
+
+    <p className="footer-description">
+      A connected platform for understanding what happens
+      after training — from employment and retention to
+      skill gaps and programme impact.
+    </p>
+
+
+    <div className="footer-navigation">
+
+      <button
+        onClick={() =>
+          window.scrollTo({
+            top: 0,
+            behavior: "smooth"
+          })
+        }
+      >
+        Home
+      </button>
+
+      <button
+        onClick={() =>
+          document
+            .getElementById("features")
+            ?.scrollIntoView({ behavior: "smooth" })
+        }
+      >
+        Features
+      </button>
+
+      <button
+        onClick={() =>
+          document
+            .querySelector(".landing-how")
+            ?.scrollIntoView({ behavior: "smooth" })
+        }
+      >
+        How it works
+      </button>
+
+      <button onClick={onLogin}>
+        Login
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <div className="footer-bottom">
+
+    <span>
+      © 2026 SkillTrack
+    </span>
+
+    <span>
+      Prototype • Fictional demo data
+    </span>
+
+    <span>
+      Built for smarter skilling outcomes
+    </span>
+
+  </div>
+
+</footer>
 
     </div>
   );
@@ -3684,109 +4945,363 @@ function SignupPage({ onSignup, onBack }) {
 function LoginPage({ onLogin, onBack, onSignup }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
+  // =========================
+  // EMAIL + PASSWORD LOGIN
+  // =========================
   const handleLogin = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!email || !password) {
-    alert("Please enter email and password.");
-    return;
-  }
-
-  try {
-    const response = await fetch(`${API_URL}/api/auth/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        email,
-        password
-      })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      alert(data.message || "Login failed");
+    if (!email || !password) {
+      alert("Please enter email and password.");
       return;
     }
 
-    alert("Login successful!");
+    try {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email,
+          password
+        })
+      });
 
-    onLogin(data.user);
+      const data = await response.json();
 
-  } catch (error) {
-    console.error("Login error:", error);
-    alert("Unable to connect to server.");
-  }
-};
+      if (!response.ok) {
+        alert(data.message || "Login failed");
+        return;
+      }
+
+      // Store SkillTrack JWT
+      localStorage.setItem("skilltrack_token", data.token);
+
+      alert("Login successful!");
+
+      onLogin(data.user);
+
+    } catch (error) {
+      console.error("Login error:", error);
+      alert("Unable to connect to server.");
+    }
+  };
+
+
+  // =========================
+  // GOOGLE LOGIN
+  // =========================
+  const handleGoogleLogin = async () => {
+    if (googleLoading) return;
+
+    setGoogleLoading(true);
+
+    try {
+      const provider = new GoogleAuthProvider();
+
+      const result = await signInWithPopup(
+        auth,
+        provider
+      );
+
+      // Firebase ID token
+      const firebaseToken =
+        await result.user.getIdToken();
+
+      // Send Firebase token to SkillTrack backend
+      const response = await fetch(
+        `${API_URL}/api/auth/social-login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            firebaseToken
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(
+          data.message ||
+          "Google login failed"
+        );
+        return;
+      }
+
+      // Store SkillTrack JWT
+      localStorage.setItem(
+        "skilltrack_token",
+        data.token
+      );
+
+      alert("Google login successful!");
+
+      onLogin(data.user);
+
+    } catch (error) {
+      console.error(
+        "Google login error:",
+        error
+      );
+
+      if (
+        error.code ===
+        "auth/popup-closed-by-user"
+      ) {
+        return;
+      }
+
+      if (
+        error.code ===
+        "auth/popup-blocked"
+      ) {
+        alert(
+          "Please allow popups for SkillTrack."
+        );
+        return;
+      }
+
+      alert(
+        "Google login failed. Please try again."
+      );
+
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
 
   return (
     <div className="login-page">
+
       <div className="login-card">
 
+        {/* LOGO */}
         <div className="login-brand">
-          <div className="landing-logo-icon">
-            <BrainCircuit size={25} />
+
+          <div className="login-brand-icon">
+            <BrainCircuit size={27} />
           </div>
 
           <div>
             <strong>SkillTrack</strong>
-            <span>Skilling Outcomes Intelligence</span>
+            <span>
+              Skilling Outcomes Intelligence
+            </span>
           </div>
-        </div>
-        
 
+        </div>
+
+
+        {/* HEADING */}
         <div className="login-heading">
-          <h1>Welcome back</h1>
-          <p>Sign in to access your SkillTrack dashboard.</p>
+
+          <div className="login-welcome">
+            Welcome back
+          </div>
+
+          <h1>
+            Sign in to SkillTrack
+          </h1>
+
+          <p>
+            Access your skilling outcomes dashboard
+            and continue where you left off.
+          </p>
+
         </div>
 
+
+        {/* EMAIL + PASSWORD LOGIN */}
         <form onSubmit={handleLogin}>
 
-          <label>Email</label>
-          <input
-            type="email"
-            placeholder="admin@skilltrack.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+          <div className="login-field">
 
-          <label>Password</label>
-          <input
-            type="password"
-            placeholder="Enter your password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+            <label>
+              Email address
+            </label>
 
-          <button className="primary login-button" type="submit">
-            Sign in
-            <ChevronRight size={17} />
-          </button>
+            <input
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) =>
+                setEmail(e.target.value)
+              }
+              autoComplete="email"
+            />
+
+          </div>
+
+
+          <div className="login-field">
+
+            <div className="password-label-row">
+
+              <label>
+                Password
+              </label>
+
+              <button
+                type="button"
+                className="forgot-password"
+                onClick={() =>
+                  alert(
+                    "Password recovery will be available soon."
+                  )
+                }
+              >
+                Forgot password?
+              </button>
+
+            </div>
+
+
+            <div className="password-input-wrap">
+
+              <input
+                type={
+                  showPassword
+                    ? "text"
+                    : "password"
+                }
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) =>
+                  setPassword(e.target.value)
+                }
+                autoComplete="current-password"
+              />
+
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() =>
+                  setShowPassword(
+                    !showPassword
+                  )
+                }
+              >
+                {showPassword
+                  ? "Hide"
+                  : "Show"}
+              </button>
+
+            </div>
+
+          </div>
+
+
+          {/* LOGIN BUTTON */}
           <button
-  type="button"
-  className="login-back"
-  onClick={onBack}
->
-  ← Back to Home
-</button>
+            className="primary login-button"
+            type="submit"
+          >
+            <span>Sign in</span>
+            <ChevronRight size={18} />
+          </button>
 
         </form>
 
-       <p className="login-demo">
-  Don't have an account?{" "}
-  <button
-    type="button"
-    className="signup-link"
-    onClick={onSignup}
-  >
-    Create account
-  </button>
-</p>
+
+        {/* DIVIDER */}
+        <div className="login-divider">
+          <span></span>
+          <b>OR</b>
+          <span></span>
+        </div>
+
+
+        {/* SOCIAL BUTTONS */}
+        <div className="social-login">
+
+          {/* GOOGLE */}
+          <button
+            type="button"
+            className="social-button"
+            onClick={handleGoogleLogin}
+            disabled={googleLoading}
+          >
+
+            <strong className="google-letter">
+              G
+            </strong>
+
+            {googleLoading
+              ? "Connecting..."
+              : "Continue with Google"}
+
+          </button>
+
+
+          {/* FACEBOOK - NEXT STEP */}
+          <button
+            type="button"
+            className="social-button"
+            onClick={() =>
+              alert(
+                "Facebook login will be connected next."
+              )
+            }
+          >
+
+            <strong className="facebook-letter">
+              f
+            </strong>
+
+            Continue with Facebook
+
+          </button>
+
+        </div>
+
+
+        {/* SIGN UP */}
+        <p className="login-signup">
+
+          Don't have an account?
+
+          <button
+            type="button"
+            className="signup-link"
+            onClick={onSignup}
+          >
+            Create account
+          </button>
+
+        </p>
+
+
+        {/* BACK */}
+        <button
+          type="button"
+          className="login-back"
+          onClick={onBack}
+        >
+          <span>←</span>
+          Back to Home
+        </button>
+
+
+        {/* SECURITY NOTE */}
+        <div className="login-security-note">
+
+          <span>●</span>
+
+          Secure SkillTrack access
+
+        </div>
 
       </div>
+
     </div>
   );
 }

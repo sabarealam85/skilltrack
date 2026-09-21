@@ -1,7 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
+const requireAdmin = require("../middleware/requireAdmin");
 
+// GET - View all employers
+// Normal user + Admin दोनों देख सकते हैं
 router.get("/", async (req, res) => {
     try {
         const result = await pool.query(`
