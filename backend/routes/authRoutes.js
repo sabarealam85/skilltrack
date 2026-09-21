@@ -31,7 +31,6 @@ router.post("/register", async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // New signup will ALWAYS be a normal user
     const result = await pool.query(
       `INSERT INTO public.users
        (name, email, password, role)
@@ -53,7 +52,6 @@ router.post("/register", async (req, res) => {
     });
   }
 });
-
 
 // =========================
 // LOGIN
@@ -94,7 +92,6 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // Create JWT token with user's role and trainee mapping
     const token = jwt.sign(
       {
         user_id: user.user_id,
@@ -128,8 +125,9 @@ router.post("/login", async (req, res) => {
     });
   }
 });
+
 // =========================
-// GOOGLE / FIREBASE SOCIAL LOGIN
+// GOOGLE / FACEBOOK FIREBASE SOCIAL LOGIN
 // =========================
 router.post("/social-login", async (req, res) => {
   try {
@@ -142,17 +140,28 @@ router.post("/social-login", async (req, res) => {
     }
 
     // Verify Firebase ID token
-    const decodedToken = await admin.auth.verifyIdToken(firebaseToken);
+    const decodedToken =
+      await admin.auth.verifyIdToken(firebaseToken);
 
-    const email = decodedToken.email;
+    // Email from Google/Facebook Firebase account
+    const email = decodedToken.email || null;
+
     const name =
       decodedToken.name ||
       decodedToken.email?.split("@")[0] ||
       "SkillTrack User";
 
+    // Email is required for SkillTrack account
     if (!email) {
+      console.error("Social login token has no email:", {
+        uid: decodedToken.uid,
+        provider: decodedToken.firebase?.sign_in_provider,
+        identities: decodedToken.firebase?.identities
+      });
+
       return res.status(400).json({
-        message: "Email not available from Google account"
+        message:
+          "Email not available from social login provider. Please allow email permission."
       });
     }
 
@@ -169,12 +178,11 @@ router.post("/social-login", async (req, res) => {
     let user;
 
     if (existingUser.rows.length > 0) {
-      // Existing user:
-      // Keep the existing role. Never automatically make them admin.
+      // Existing user: keep existing role
       user = existingUser.rows[0];
 
     } else {
-      // New social-login user
+      // New social-login user is always a normal user
       const result = await pool.query(
         `
         INSERT INTO public.users
@@ -192,7 +200,7 @@ router.post("/social-login", async (req, res) => {
       user = result.rows[0];
     }
 
-    // Create the same SkillTrack JWT used by normal login
+    // Create SkillTrack JWT
     const token = jwt.sign(
       {
         user_id: user.user_id,

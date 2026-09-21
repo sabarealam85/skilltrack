@@ -9,7 +9,11 @@ import {
   ShieldCheck, FileText, Settings, LogOut, BarChart3, Sparkles,
   UserCheck, Building2, BrainCircuit, Send, Filter, Download
 } from "lucide-react";
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import {
+  GoogleAuthProvider,
+  FacebookAuthProvider,
+  signInWithPopup
+} from "firebase/auth";
 import { auth } from "./firebase";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip,
@@ -5241,25 +5245,60 @@ function LoginPage({ onLogin, onBack, onSignup }) {
 
           </button>
 
+{/* FACEBOOK LOGIN */}
+<button
+  type="button"
+  className="social-button"
+  onClick={async () => {
+    try {
+      const provider = new FacebookAuthProvider();
 
-          {/* FACEBOOK - NEXT STEP */}
-          <button
-            type="button"
-            className="social-button"
-            onClick={() =>
-              alert(
-                "Facebook login will be connected next."
-              )
-            }
-          >
+      const result = await signInWithPopup(auth, provider);
 
-            <strong className="facebook-letter">
-              f
-            </strong>
+      const firebaseToken = await result.user.getIdToken();
 
-            Continue with Facebook
+      const response = await fetch(
+        `${API_URL}/api/auth/social-login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            firebaseToken
+          })
+        }
+      );
 
-          </button>
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Facebook login failed"
+        );
+      }
+
+      localStorage.setItem(
+        "skilltrackToken",
+        data.token
+      );
+
+      onLogin(data.user);
+
+    } catch (error) {
+      console.error("Facebook login error:", error);
+      alert(
+        error.message || "Facebook login failed"
+      );
+    }
+  }}
+>
+  <strong className="facebook-letter">
+    f
+  </strong>
+
+  Continue with Facebook
+</button>
 
         </div>
 
