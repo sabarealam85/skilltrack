@@ -63,8 +63,7 @@ import {
 
 import "./styles.css";
 
-const API_URL = "http://localhost:5000";
-
+const API_URL = "https://skilltrack-cziu.onrender.com";
 const authFetch = (url, options = {}) => {
   const token = localStorage.getItem("skilltrack_token");
 
