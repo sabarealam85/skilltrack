@@ -5,9 +5,41 @@ const pool = require("../db");
 const requireAdmin = require("../middleware/requireAdmin");
 
 // Get all training records
+// Get training records
 router.get("/", async (req, res) => {
     try {
-        const result = await pool.query(`
+
+        // ADMIN → sabhi training records
+        if (req.user.role === "admin") {
+            const result = await pool.query(`
+                SELECT 
+                    training.training_id, 
+                    training.trainee_id, 
+                    trainees.name AS trainee_name, 
+                    training.course, 
+                    training.course_provider, 
+                    training.start_date, 
+                    training.end_date, 
+                    training.assessment_score 
+                FROM public.training 
+                LEFT JOIN public.trainees 
+                    ON training.trainee_id = trainees.trainee_id 
+                ORDER BY training.training_id DESC
+            `);
+
+            return res.json(result.rows);
+        }
+
+        // NORMAL USER → trainee profile linked hona chahiye
+        if (!req.user.trainee_id) {
+            return res.status(403).json({
+                error: "No trainee profile linked to this account"
+            });
+        }
+
+        // NORMAL USER → sirf apna training data
+        const result = await pool.query(
+            `
             SELECT 
                 training.training_id, 
                 training.trainee_id, 
@@ -19,11 +51,14 @@ router.get("/", async (req, res) => {
                 training.assessment_score 
             FROM public.training 
             LEFT JOIN public.trainees 
-                ON training.trainee_id = trainees.trainee_id 
+                ON training.trainee_id = trainees.trainee_id
+            WHERE training.trainee_id = $1
             ORDER BY training.training_id DESC
-        `);
+            `,
+            [req.user.trainee_id]
+        );
 
-        res.json(result.rows);
+        return res.json(result.rows);
 
     } catch (error) {
         console.error("Error fetching training:", error);

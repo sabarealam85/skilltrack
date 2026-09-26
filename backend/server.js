@@ -1,4 +1,11 @@
 require("dotenv").config();
+
+const { GoogleGenAI } = require("@google/genai");
+
+const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY
+});
+
 const express = require("express");
 const cors = require("cors");
 
@@ -11,24 +18,99 @@ const interventionRoutes = require("./routes/interventionRoutes");
 const followupRoutes = require("./routes/followupRoutes");
 const authRoutes = require("./routes/authRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const adminRoutes = require("./routes/adminRoutes");
+
 const app = express();
+
 const authenticateToken = require("./middleware/authMiddleware");
-const requireAdmin = require("./middleware/requireAdmin");
 
 app.use(cors());
 app.use(express.json());
 
 
-app.use("/api/trainees", authenticateToken, traineeRoutes);
-app.use("/api/training", authenticateToken, trainingRoutes);
-app.use("/api/employment", authenticateToken, employmentRoutes);
-app.use("/api/employers", authenticateToken, employersRoutes);
-app.use("/api/skill-gaps", authenticateToken, skillGapRoutes);
-app.use("/api/interventions", authenticateToken, interventionRoutes);
-app.use("/api/followups", authenticateToken, followupRoutes);
-app.use("/api/auth", authRoutes);
-app.use("/api/notifications", authenticateToken, notificationRoutes);
+// =====================================================
+// EXISTING ROUTES
+// =====================================================
 
+app.use(
+    "/api/trainees",
+    authenticateToken,
+    traineeRoutes
+);
+
+app.use(
+    "/api/training",
+    authenticateToken,
+    trainingRoutes
+);
+
+app.use(
+    "/api/employment",
+    authenticateToken,
+    employmentRoutes
+);
+
+app.use(
+    "/api/employers",
+    authenticateToken,
+    employersRoutes
+);
+
+app.use(
+    "/api/skill-gaps",
+    authenticateToken,
+    skillGapRoutes
+);
+
+app.use(
+    "/api/interventions",
+    authenticateToken,
+    interventionRoutes
+);
+
+app.use(
+    "/api/followups",
+    authenticateToken,
+    followupRoutes
+);
+
+
+// =====================================================
+// AUTH
+// =====================================================
+
+app.use(
+    "/api/auth",
+    authRoutes
+);
+
+
+// =====================================================
+// NOTIFICATIONS
+// =====================================================
+
+app.use(
+    "/api/notifications",
+    authenticateToken,
+    notificationRoutes
+);
+
+
+// =====================================================
+// ADMIN MANAGEMENT
+// authenticateToken + adminRoutes
+// =====================================================
+
+app.use(
+    "/api/admin",
+    authenticateToken,
+    adminRoutes
+);
+
+
+// =====================================================
+// ROOT
+// =====================================================
 
 app.get("/", (req, res) => {
     res.json({
@@ -36,8 +118,15 @@ app.get("/", (req, res) => {
     });
 });
 
+
+// =====================================================
+// SERVER
+// =====================================================
+
 const PORT = 5000;
 
 app.listen(PORT, () => {
-    console.log(`SkillTrack Backend running on http://localhost:${PORT}`);
+    console.log(
+        `SkillTrack Backend running on http://localhost:${PORT}`
+    );
 });
