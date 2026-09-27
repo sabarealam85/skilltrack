@@ -7439,7 +7439,7 @@ function SkillGaps({
           <td>
             {trainee?.name || "—"}
           </td>
-          <td>{trainee?.name || "—"}</td>
+        
 
           <td>
             <div className="skill-gap-group">
