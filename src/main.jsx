@@ -7363,7 +7363,7 @@ function SkillGaps({
 
         <div className="table-wrap">
 
-          <table className="data-table">
+          <table className="data-table skill-gap-table">
 
             <thead>
               <tr>
