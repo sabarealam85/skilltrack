@@ -3109,67 +3109,33 @@ function Dashboard({
 
 
         <Card
-          title="Priority follow-ups"
-          subtitle="Trainees needing an outcome update"
-        >
+  title="Priority follow-ups"
+  subtitle="Manage trainee follow-ups and contact them"
+>
+  <div className="dashboard-followup-summary">
+    <div className="dashboard-followup-content">
+      <div className="dashboard-followup-icon">
+        ↗
+      </div>
 
-          <div className="follow-list dashboard-follow-list">
+      <div>
+        <strong>Follow-ups</strong>
+        <span>
+          Review pending follow-ups and contact trainees from the Follow-ups page.
+        </span>
+      </div>
+    </div>
 
-            {followups
-              .filter(f => f.status !== "Completed")
-              .map(f => {
-
-               const trainee = trainees.find(
-  t => t.trainee_id === f.trainee_id
-);
-
-                return (
-                  <div
-                    className="follow dashboard-follow"
-                    key={f.followup_id}
-                  >
-
-                    <div className="follow-indicator" />
-
-                    <div className="avatar small dashboard-avatar">
-                      {trainee
-                        ? trainee.name
-                            .split(" ")
-                            .map(x => x[0])
-                            .join("")
-                        : f.trainee_id}
-                    </div>
-
-                    <div className="follow-info">
-
-                      <b>
-                        {trainee
-                          ? trainee.name
-                          : f.trainee_id}
-                      </b>
-
-                      <span>
-                        {f.trainee_id} · {f.type}
-                      </span>
-
-                      <span className="follow-response">
-                        {f.response}
-                      </span>
-
-                    </div>
-
-                    <button className="dashboard-contact-button">
-                      Contact
-                    </button>
-
-                  </div>
-                );
-              })}
-
-          </div>
-
-        </Card>
-
+    <button
+      type="button"
+      className="dashboard-contact-button"
+     onClick={() => setPage("Follow-up Center")}
+    >
+      View Follow-ups
+      <span className="followup-arrow">→</span>
+    </button>
+  </div>
+</Card>
       </section>
 
     </div>
@@ -8985,31 +8951,33 @@ function FollowUps({
                   </option>
                 </select>
               </div>
+<div>
 
-              <div>
-                <label className="form-label">
-                  Status
-                </label>
+  <label className="form-label">
+    Status
+  </label>
 
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                  className="form-input"
-                >
-                  <option value="Pending">
-                    Pending
-                  </option>
+  <select
+    name="status"
+    value={formData.status}
+    onChange={handleChange}
+    className="form-input"
+  >
+    <option value="Pending">
+      Pending
+    </option>
 
-                  <option value="In Progress">
-                    In Progress
-                  </option>
+    <option value="In Progress">
+      In Progress
+    </option>
 
-                  <option value="Completed">
-                    Completed
-                  </option>
-                </select>
-              </div>
+    <option value="Completed">
+      Completed
+    </option>
+  </select>
+
+</div>
+              
 
               <div className="followup-full-width">
                 <label className="form-label">
@@ -9055,6 +9023,7 @@ function FollowUps({
         </div>,
          document.body
       )}
+      
 
       {/* EDIT FOLLOW-UP MODAL */}
 
@@ -9476,103 +9445,113 @@ function FollowUps({
 
                   </div>
 
-                  {/* STATUS */}
+                
 
-                  <div className="followup-status">
+                 {/* STATUS */}
 
-                    <label>
-                      Status
-                    </label>
+<div className="followup-status">
 
-                    <select
-                      value={
-                        f.status || ""
-                      }
-                      onChange={async (
-                        e
-                      ) => {
+  <label>
+    Status
+  </label>
 
-                        const newStatus =
-                          e.target.value;
+  <select
+    value={f.status || ""}
+    onChange={async (e) => {
+      const newStatus = e.target.value;
 
-                        try {
-                          const response =
-                            await authFetch(
-                              `${API_URL}/api/followups/${f.followup_id}`,
-                              {
-                                method:
-                                  "PUT",
-                                headers: {
-                                  "Content-Type":
-                                    "application/json"
-                                },
-                                body: JSON.stringify(
-                                  {
-                                    status:
-                                      newStatus
-                                  }
-                                )
-                              }
-                            );
+      try {
+        const response = await authFetch(
+          `${API_URL}/api/followups/${f.followup_id}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              trainee_id: f.trainee_id,
+              followup_date: f.followup_date,
+              type: f.type,
+              response: f.response || "",
+              source: f.source || "",
+              status: newStatus
+            })
+          }
+        );
 
-                          const result =
-                            await response.json();
+        const result = await response.json();
 
-                          if (
-                            !response.ok
-                          ) {
-                            throw new Error(
-                              result.error ||
-                                "Failed to update follow-up"
-                            );
-                          }
+        if (!response.ok) {
+          throw new Error(
+            result.error ||
+            "Failed to update follow-up"
+          );
+        }
 
-                          setFollowups(
-                            (prev) =>
-                              prev.map(
-                                (
-                                  item
-                                ) =>
-                                  item.followup_id ===
-                                  result
-                                    .followup
-                                    .followup_id
-                                    ? result.followup
-                                    : item
-                              )
-                          );
-                        } catch (
-                          error
-                        ) {
-                          console.error(
-                            error
-                          );
+        setFollowups((prev) =>
+          prev.map((item) =>
+            item.followup_id ===
+            result.followup.followup_id
+              ? result.followup
+              : item
+          )
+        );
 
-                          alert(
-                            "ERROR: " +
-                              error.message
-                          );
-                        }
-                      }}
-                    >
-                      <option value="">
-                        Select status
-                      </option>
+      } catch (error) {
+        console.error(error);
 
-                      <option value="Pending">
-                        Pending
-                      </option>
+        alert(
+          "ERROR: " +
+          error.message
+        );
+      }
+    }}
+  >
+    <option value="">
+      Select status
+    </option>
 
-                      <option value="In Progress">
-                        In Progress
-                      </option>
+    <option value="Pending">
+      Pending
+    </option>
 
-                      <option value="Completed">
-                        Completed
-                      </option>
-                    </select>
+    <option value="In Progress">
+      In Progress
+    </option>
 
-                  </div>
+    <option value="Completed">
+      Completed
+    </option>
+  </select>
+
+  <button
+  type="button"
+  className="followup-contact-button"
+  onClick={() => {
+    const phone = String(
+      trainee?.phone || ""
+    ).replace(/\D/g, "");
+
+    if (phone.length === 10) {
+      window.location.href =
+        `tel:+91${phone}`;
+    } else {
+      alert(
+        "Trainee phone number is unavailable."
+      );
+    }
+  }}
+>
+  <span>📞 Contact Trainee</span>
+
+  <span className="followup-contact-number">
+    {trainee?.phone
+      ? `+91 ${String(trainee.phone).replace(/\D/g, "")}`
+      : "Number unavailable"}
+  </span>
+</button>
+
+</div>
 
                   {/* ADMIN ACTIONS */}
 
