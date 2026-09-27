@@ -4,22 +4,185 @@ const pool = require("../db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
 const admin = require("../firebaseAdmin");
 
 const authenticateToken = require("../middleware/authMiddleware");
-
 // ======================================================
-// EMAIL TRANSPORTER
+// SEND LOGIN ID EMAIL
 // ======================================================
 
-const emailTransporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_APP_PASSWORD
+const sendLoginIdEmail = async ({
+  email,
+  name,
+  loginId
+}) => {
+  try {
+    if (
+      !process.env.MAILJET_API_KEY ||
+      !process.env.MAILJET_SECRET_KEY ||
+      !process.env.MAILJET_SENDER_EMAIL
+    ) {
+      console.error(
+        "Mailjet configuration is missing. Login ID email was not sent."
+      );
+
+      return false;
+    }
+
+    const mailjetResponse = await fetch(
+      "https://api.mailjet.com/v3.1/send",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+
+          "Authorization":
+            "Basic " +
+            Buffer.from(
+              `${process.env.MAILJET_API_KEY}:${process.env.MAILJET_SECRET_KEY}`
+            ).toString("base64")
+        },
+
+        body: JSON.stringify({
+          Messages: [
+            {
+              From: {
+                Email:
+                  process.env.MAILJET_SENDER_EMAIL,
+                Name:
+                  "SkillTrack"
+              },
+
+              To: [
+                {
+                  Email: email,
+                  Name: name
+                }
+              ],
+
+              Subject:
+                "Welcome to SkillTrack - Your Login ID",
+
+              TextPart:
+                `Hello ${name},\n\n` +
+                `Your SkillTrack account has been created successfully.\n\n` +
+                `Login ID: ${loginId}\n` +
+                `Registered Email: ${email}\n\n` +
+                `You can now use your Login ID and password to log in to SkillTrack.\n\n` +
+                `For security reasons, your password is not included in this email.\n\n` +
+                `Welcome to SkillTrack.`,
+
+              HTMLPart: `
+                <div
+                  style="
+                    font-family: Arial, sans-serif;
+                    max-width: 560px;
+                    margin: auto;
+                    padding: 24px;
+                    color: #17324d;
+                  "
+                >
+
+                  <h2 style="color:#1769aa;">
+                    Welcome to SkillTrack
+                  </h2>
+
+                  <p>
+                    Hello <strong>${name}</strong>,
+                  </p>
+
+                  <p>
+                    Your SkillTrack account has been created
+                    successfully.
+                  </p>
+
+                  <div
+                    style="
+                      background:#f3f7fb;
+                      padding:20px;
+                      border-radius:10px;
+                      margin:20px 0;
+                    "
+                  >
+
+                    <p style="margin:0 0 10px 0;">
+                      <strong>Your Login ID</strong>
+                    </p>
+
+                    <div
+                      style="
+                        font-size:28px;
+                        font-weight:700;
+                        letter-spacing:2px;
+                        color:#1769aa;
+                      "
+                    >
+                      ${loginId}
+                    </div>
+
+                    <p style="margin:15px 0 0 0;">
+                      <strong>Registered Email:</strong>
+                      ${email}
+                    </p>
+
+                  </div>
+
+                  <p>
+                    You can now use your Login ID and password
+                    to log in to SkillTrack.
+                  </p>
+
+                  <p
+                    style="
+                      color:#66788a;
+                      font-size:13px;
+                    "
+                  >
+                    For security reasons, your password is not
+                    included in this email.
+                  </p>
+
+                  <p>
+                    Welcome to SkillTrack.
+                  </p>
+
+                </div>
+              `
+            }
+          ]
+        })
+      }
+    );
+
+    if (!mailjetResponse.ok) {
+      const errorData =
+        await mailjetResponse.json().catch(() => null);
+
+      console.error(
+        "Login ID email failed:",
+        errorData
+      );
+
+      return false;
+    }
+
+    console.log(
+      "Login ID email sent successfully to:",
+      email
+    );
+
+    return true;
+
+  } catch (error) {
+    console.error(
+      "Login ID email error:",
+      error
+    );
+
+    return false;
   }
-});
+};
 
 // ======================================================
 // GENERATE EMAIL OTP
@@ -51,6 +214,29 @@ router.post("/send-email-otp", async (req, res) => {
       });
     }
 
+    // --------------------------------------------------
+    // CHECK MAILJET CONFIGURATION
+    // --------------------------------------------------
+
+    if (
+      !process.env.MAILJET_API_KEY ||
+      !process.env.MAILJET_SECRET_KEY ||
+      !process.env.MAILJET_SENDER_EMAIL
+    ) {
+      console.error(
+        "Mailjet environment variables are missing."
+      );
+
+      return res.status(500).json({
+        message:
+          "Mail service is not configured on the server."
+      });
+    }
+
+    // --------------------------------------------------
+    // CHECK EXISTING USER
+    // --------------------------------------------------
+
     const existingUser = await pool.query(
       `
       SELECT user_id
@@ -63,9 +249,14 @@ router.post("/send-email-otp", async (req, res) => {
 
     if (existingUser.rows.length > 0) {
       return res.status(409).json({
-        message: "An account with this email already exists"
+        message:
+          "An account with this email already exists"
       });
     }
+
+    // --------------------------------------------------
+    // GENERATE OTP
+    // --------------------------------------------------
 
     const otp = generateEmailOTP();
 
@@ -78,6 +269,10 @@ router.post("/send-email-otp", async (req, res) => {
       Date.now() + 10 * 60 * 1000
     );
 
+    // --------------------------------------------------
+    // REMOVE OLD OTP
+    // --------------------------------------------------
+
     await pool.query(
       `
       DELETE FROM public.email_verification_otps
@@ -85,6 +280,10 @@ router.post("/send-email-otp", async (req, res) => {
       `,
       [cleanEmail]
     );
+
+    // --------------------------------------------------
+    // SAVE NEW OTP
+    // --------------------------------------------------
 
     await pool.query(
       `
@@ -106,74 +305,202 @@ router.post("/send-email-otp", async (req, res) => {
       ]
     );
 
-    await emailTransporter.sendMail({
-      from: `"SkillTrack Account Verification" <${process.env.EMAIL_USER}>`,
-      to: cleanEmail,
-      subject: "Your SkillTrack verification code",
+    // --------------------------------------------------
+    // SEND EMAIL THROUGH MAILJET
+    // --------------------------------------------------
 
-      text:
-        `Your SkillTrack verification OTP is ${otp}.\n\n` +
-        `This OTP is valid for 10 minutes.\n\n` +
-        `If you did not request this verification, please ignore this email.`,
+    let mailjetResponse;
 
-     html: `
-  <div
-    style="
-      font-family: Arial, sans-serif;
-      max-width: 560px;
-      margin: auto;
-      padding: 24px;
-      color: #17324d;
-    "
-  >
+    try {
+      mailjetResponse = await fetch(
+        "https://api.mailjet.com/v3.1/send",
+        {
+          method: "POST",
 
-    <h2 style="color:#1769aa;">
-      SkillTrack
-    </h2>
+          headers: {
+            "Content-Type": "application/json",
 
-    <p>
-      Use the verification code below to complete your SkillTrack account setup.
-    </p>
+            "Authorization":
+              "Basic " +
+              Buffer.from(
+                `${process.env.MAILJET_API_KEY}:${process.env.MAILJET_SECRET_KEY}`
+              ).toString("base64")
+          },
 
-    <div
-      style="
-        font-size:30px;
-        font-weight:700;
-        letter-spacing:8px;
-        padding:18px;
-        background:#f3f7fb;
-        border-radius:10px;
-        text-align:center;
-        margin:20px 0;
-      "
-    >
-      ${otp}
-    </div>
+          body: JSON.stringify({
+            Messages: [
+              {
+                From: {
+                  Email:
+                    process.env.MAILJET_SENDER_EMAIL,
+                  Name:
+                    "SkillTrack Account Verification"
+                },
 
-    <p>
-      This code expires in <strong>10 minutes</strong>.
-    </p>
+                To: [
+                  {
+                    Email: cleanEmail
+                  }
+                ],
 
-    <p style="color:#66788a;font-size:13px;">
-      If you did not request this code, you can safely ignore this email.
-    </p>
+                Subject:
+                  "Your SkillTrack verification code",
 
-  </div>
-`,
-    });
+                TextPart:
+                  `Your SkillTrack verification OTP is ${otp}.\n\n` +
+                  `This OTP is valid for 10 minutes.\n\n` +
+                  `If you did not request this verification, please ignore this email.`,
+
+                HTMLPart: `
+                  <div
+                    style="
+                      font-family: Arial, sans-serif;
+                      max-width: 560px;
+                      margin: auto;
+                      padding: 24px;
+                      color: #17324d;
+                    "
+                  >
+
+                    <h2 style="color:#1769aa;">
+                      SkillTrack
+                    </h2>
+
+                    <p>
+                      Use the verification code below to
+                      complete your SkillTrack account setup.
+                    </p>
+
+                    <div
+                      style="
+                        font-size:30px;
+                        font-weight:700;
+                        letter-spacing:8px;
+                        padding:18px;
+                        background:#f3f7fb;
+                        border-radius:10px;
+                        text-align:center;
+                        margin:20px 0;
+                      "
+                    >
+                      ${otp}
+                    </div>
+
+                    <p>
+                      This code expires in
+                      <strong>10 minutes</strong>.
+                    </p>
+
+                    <p
+                      style="
+                        color:#66788a;
+                        font-size:13px;
+                      "
+                    >
+                      If you did not request this code,
+                      you can safely ignore this email.
+                    </p>
+
+                  </div>
+                `
+              }
+            ]
+          })
+        }
+      );
+
+    } catch (mailError) {
+
+      console.error(
+        "MAILJET NETWORK ERROR:",
+        mailError
+      );
+
+      return res.status(502).json({
+        message:
+          "Unable to connect to Mailjet. Please try again."
+      });
+    }
+
+    // --------------------------------------------------
+    // READ MAILJET RESPONSE
+    // --------------------------------------------------
+
+    let mailjetData;
+
+    try {
+      mailjetData =
+        await mailjetResponse.json();
+
+    } catch (parseError) {
+
+      console.error(
+        "MAILJET RESPONSE PARSE ERROR:",
+        parseError
+      );
+
+      return res.status(502).json({
+        message:
+          "Invalid response received from Mailjet."
+      });
+    }
+
+    // --------------------------------------------------
+    // MAILJET ERROR
+    // --------------------------------------------------
+
+    if (!mailjetResponse.ok) {
+
+      console.error(
+        "MAILJET STATUS:",
+        mailjetResponse.status
+      );
+
+      console.error(
+        "MAILJET RESPONSE:",
+        JSON.stringify(
+          mailjetData,
+          null,
+          2
+        )
+      );
+
+      const mailjetError =
+        mailjetData?.Messages?.[0]?.Errors?.[0]
+          ?.ErrorMessage ||
+        mailjetData?.ErrorMessage ||
+        mailjetData?.Error ||
+        "Mailjet failed to send the OTP email.";
+
+      return res.status(502).json({
+        message: mailjetError
+      });
+    }
+
+    // --------------------------------------------------
+    // SUCCESS
+    // --------------------------------------------------
+
+    console.log(
+      "Mailjet OTP sent successfully to:",
+      cleanEmail
+    );
 
     return res.json({
-      message: "OTP sent successfully to your email"
+      message:
+        "OTP sent successfully to your email"
     });
 
   } catch (error) {
+
     console.error(
-      "Send email OTP error:",
+      "SEND EMAIL OTP ERROR:",
       error
     );
 
     return res.status(500).json({
       message:
+        error.message ||
         "Unable to send OTP. Please try again."
     });
   }
@@ -556,6 +883,15 @@ router.post("/register", async (req, res) => {
 
     await client.query("COMMIT");
 
+// --------------------------------------------------
+// SEND LOGIN ID EMAIL
+// --------------------------------------------------
+
+await sendLoginIdEmail({
+  email: user.email,
+  name: user.name,
+  loginId: user.trainee_id
+});
     // --------------------------------------------------
     // REMOVE USED OTP RECORD
     // --------------------------------------------------

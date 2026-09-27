@@ -63,7 +63,7 @@ import {
 
 import "./styles.css";
 
-const API_URL = "https://skilltrack-cziu.onrender.com";
+const API_URL = "http://localhost:5000";
 const authFetch = (url, options = {}) => {
   const token = localStorage.getItem("skilltrack_token");
 
@@ -1374,26 +1374,26 @@ const handleLogout = async () => {
             <Menu size={22} />
           </button>
 
-          <div className="topbar-left">
+          {page === "Trainees" && (
+  <div className="topbar-left">
 
-            <div className="search">
+    <div className="search">
 
-              <Search size={18} />
+      <Search size={18} />
 
-              <input
-                type="text"
-                placeholder="Search trainees, skills, training..."
-                value={query}
-                onChange={(e) =>
-                  setQuery(
-                    e.target.value
-                  )
-                }
-              />
+      <input
+        type="text"
+        placeholder="Search trainees name"
+        value={query}
+        onChange={(e) =>
+          setQuery(e.target.value)
+        }
+      />
 
-            </div>
+    </div>
 
-          </div>
+  </div>
+)}
 
           <div className="top-actions">
 
@@ -3822,20 +3822,21 @@ function Trainees({
     }, [trainees]);
 
 
-  const statusOptions =
-    React.useMemo(() => {
+  const statusOptions = React.useMemo(() => {
+  const existingStatuses = trainees
+    .map(t => String(t.status || "").trim())
+    .filter(Boolean);
 
-      return [
-        ...new Set(
-          trainees
-            .map(
-              t => t.status
-            )
-            .filter(Boolean)
-        )
-      ].sort();
-
-    }, [trainees]);
+  return [
+    "Employed",
+    "Unemployed",
+    ...existingStatuses.filter(
+      status =>
+        status.toLowerCase() !== "employed" &&
+        status.toLowerCase() !== "unemployed"
+    )
+  ];
+}, [trainees]);
 
 
   // =========================
@@ -11660,8 +11661,8 @@ function SignupPage({
       setResendTimer(60);
 
       alert(
-        "A verification OTP has been sent to your email. Please check your inbox."
-      );
+  "Please check your Inbox or All Mail. If you don't find it there, please check your Spam/Junk folder."
+);
     } catch (error) {
       console.error(
         "Send email OTP error:",
