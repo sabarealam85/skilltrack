@@ -1787,14 +1787,44 @@ ${JSON.stringify(
 // ADMIN ONLY
 // =====================================================
 
+
 router.post(
+    
     "/generate/:traineeId",
-    requireAdmin,
+    
     async (req, res) => {
         try {
+             
             const {
                 traineeId
             } = req.params;
+
+            // =================================================
+            // SKILL GAP GENERATION ACCESS CONTROL
+            // =================================================
+            // Admin can generate skill gaps for any trainee.
+            // Normal users can generate skill gaps only
+            // for their own trainee profile.
+
+            if (req.user.role !== "admin") {
+
+                if (!req.user.trainee_id) {
+                    return res.status(403).json({
+                        error:
+                            "No trainee profile is assigned to this account"
+                    });
+                }
+
+                if (
+                    String(req.user.trainee_id) !==
+                    String(traineeId)
+                ) {
+                    return res.status(403).json({
+                        error:
+                            "You can only generate skill gaps for your own trainee profile"
+                    });
+                }
+            }
 
 
             // =================================================

@@ -5600,7 +5600,7 @@ function Training({ trainees, training, setTraining, currentUser }) {
 
   const [form, setForm] = useState({
     trainee_id: "",
-    course: "",
+    skill: "",
     course_provider: "",
     start_date: "",
     end_date: "",
@@ -5616,7 +5616,7 @@ function Training({ trainees, training, setTraining, currentUser }) {
 
     setForm({
       trainee_id: "",
-      course: "",
+      skill: "",
       course_provider: "",
       start_date: "",
       end_date: "",
@@ -5653,7 +5653,7 @@ function Training({ trainees, training, setTraining, currentUser }) {
       setForm({
         trainee_id:
           currentUser?.trainee_id || "",
-        course: "",
+        skill: "",
         course_provider: "",
         start_date: "",
         end_date: "",
@@ -5677,6 +5677,7 @@ function Training({ trainees, training, setTraining, currentUser }) {
       item?.trainee ||
       "";
 
+
     // NORMAL USER → only own record
     if (
       !isAdmin &&
@@ -5697,8 +5698,8 @@ function Training({ trainees, training, setTraining, currentUser }) {
       trainee_id:
         itemTraineeId,
 
-      course:
-        item?.course || "",
+      skill:
+        item?.skill || "",
 
       course_provider:
         item?.course_provider || "",
@@ -5755,13 +5756,13 @@ function Training({ trainees, training, setTraining, currentUser }) {
 
 
       // =================================================
-      // COURSE VALIDATION
+      // SKILL VALIDATION
       // =================================================
 
-      if (!form.course.trim()) {
+      if (!form.skill.trim()) {
 
         alert(
-          "Please enter course name."
+          "Please enter skill name."
         );
 
         return;
@@ -5777,8 +5778,8 @@ function Training({ trainees, training, setTraining, currentUser }) {
         trainee_id:
           finalTraineeId,
 
-        course:
-          form.course.trim(),
+        skill:
+          form.skill.trim(),
 
         course_provider:
           form.course_provider.trim() || null,
@@ -6021,7 +6022,7 @@ function Training({ trainees, training, setTraining, currentUser }) {
 
         title="Training & assessment"
 
-        text="Track enrolment, attendance, assessment scores and certification in one lifecycle record."
+        text="Track skills, training provider, assessment scores and training dates in one lifecycle record."
 
       />
 
@@ -6110,7 +6111,7 @@ function Training({ trainees, training, setTraining, currentUser }) {
 
                       ? "Update the training details below."
 
-                      : "Enter the training and assessment details below."
+                      : "Enter the skill and training details below."
 
                     }
 
@@ -6312,7 +6313,7 @@ function Training({ trainees, training, setTraining, currentUser }) {
 
 
                   {/* =================================================
-                      COURSE
+                      SKILL
                   ================================================= */}
 
                   <div className="training-field">
@@ -6320,20 +6321,20 @@ function Training({ trainees, training, setTraining, currentUser }) {
                     <label>
 
                       <span className="field-icon">
-                        ▣
+                        ◆
                       </span>
 
-                      Course
+                      Skill
 
                     </label>
 
 
                     <input
 
-                      placeholder="Enter course name"
+                      placeholder="Enter skill name"
 
                       value={
-                        form.course
+                        form.skill
                       }
 
                       onChange={
@@ -6342,7 +6343,7 @@ function Training({ trainees, training, setTraining, currentUser }) {
 
                             ...form,
 
-                            course:
+                            skill:
                               e.target.value
 
                           })
@@ -6354,7 +6355,7 @@ function Training({ trainees, training, setTraining, currentUser }) {
 
 
                   {/* =================================================
-                      COURSE PROVIDER
+                      PROVIDER
                   ================================================= */}
 
                   <div className="training-field">
@@ -6365,14 +6366,14 @@ function Training({ trainees, training, setTraining, currentUser }) {
                         ▤
                       </span>
 
-                      Course Provider
+                      Provider
 
                     </label>
 
 
                     <input
 
-                      placeholder="Enter course provider"
+                      placeholder="Enter training provider"
 
                       value={
                         form.course_provider
@@ -6773,7 +6774,7 @@ function Training({ trainees, training, setTraining, currentUser }) {
                 </th>
 
                 <th>
-                  Course
+                  Skill
                 </th>
 
                 <th>
@@ -6897,19 +6898,19 @@ function Training({ trainees, training, setTraining, currentUser }) {
                       </td>
 
 
-                      {/* COURSE */}
+                      {/* SKILL */}
 
                       <td>
 
                         <div className="training-course">
 
                           <span className="course-icon">
-                            ▣
+                            ◆
                           </span>
 
                           <span>
 
-                            {item?.course ||
+                            {item?.skill ||
                               "—"}
 
                           </span>
@@ -6942,7 +6943,6 @@ function Training({ trainees, training, setTraining, currentUser }) {
                           ◷{" "}
 
                           {item?.start_date
-
                             ?.slice(0, 10) ||
 
                             "—"}
@@ -6961,7 +6961,6 @@ function Training({ trainees, training, setTraining, currentUser }) {
                           ◷{" "}
 
                           {item?.end_date
-
                             ?.slice(0, 10) ||
 
                             "—"}
@@ -8634,38 +8633,47 @@ function SkillGaps({
     setShowSkillForm(false);
   };
 
-  const handleGenerateSkillGap = async () => {
-    if (!form.trainee_id) {
-      alert("Please select a trainee");
-      return;
-    }
+ const handleGenerateSkillGap = async () => {
+  const traineeId = isAdmin
+    ? form.trainee_id
+    : userTraineeId;
 
-    try {
-      const response = await authFetch(
-        `${API_URL}/api/skill-gaps/generate/${form.trainee_id}`,
-        {
-          method: "POST"
-        }
-      );
+  if (!traineeId) {
+    alert(
+      isAdmin
+        ? "Please select a trainee"
+        : "Your account is not linked to a trainee record"
+    );
+    return;
+  }
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          result.error || "Failed to generate AI skill gap"
-        );
+  try {
+    const response = await authFetch(
+      `${API_URL}/api/skill-gaps/generate/${traineeId}`,
+      {
+        method: "POST"
       }
+    );
 
-      setSkillGaps(result.skillGaps || []);
+    const result = await response.json();
 
-      alert("AI skill gap generated successfully!");
-
-      resetForm();
-    } catch (error) {
-      console.error("AI Skill Gap Error:", error);
-      alert("ERROR: " + error.message);
+    if (!response.ok) {
+      throw new Error(
+        result.error || "Failed to generate AI skill gap"
+      );
     }
-  };
+
+    setSkillGaps(result.skillGaps || []);
+
+    alert("AI skill gap generated successfully!");
+
+    resetForm();
+
+  } catch (error) {
+    console.error("AI Skill Gap Error:", error);
+    alert("ERROR: " + error.message);
+  }
+};
 
   const handleGenerateRecommendations = async () => {
     const traineeId = isAdmin
@@ -8762,12 +8770,20 @@ function SkillGaps({
       >
 
         <div style={{ marginBottom: "15px" }}>
-          {isAdmin && (
-            <button
+        <button
   className="ai-skill-gap-button"
   onClick={() => {
+    if (!isAdmin && !userTraineeId) {
+      alert(
+        "Your account is not linked to a trainee record. Please contact the Administrator."
+      );
+      return;
+    }
+
     setForm({
-      trainee_id: ""
+      trainee_id: isAdmin
+        ? ""
+        : userTraineeId
     });
 
     setShowSkillForm(true);
@@ -8777,10 +8793,9 @@ function SkillGaps({
   <span>Generate AI Skill Gap</span>
   <span className="ai-skill-arrow">→</span>
 </button>
-          )}
         </div>
 
-        {isAdmin && showSkillForm && createPortal (
+        {showSkillForm && createPortal (
           <div className="modal-overlay">
 
             <div className="modal">
@@ -8801,46 +8816,65 @@ function SkillGaps({
               </div>
 
               <div>
+{isAdmin ? (
+  <div>
+    <label>Trainee</label>
 
-                <div>
-                  <label>Trainee</label>
+    <select
+      value={form.trainee_id}
+      onChange={e =>
+        setForm({
+          trainee_id: e.target.value
+        })
+      }
+    >
+      <option value="">
+        Select trainee
+      </option>
 
-                  <select
-                    value={form.trainee_id}
-                    onChange={e =>
-                      setForm({
-                        trainee_id: e.target.value
-                      })
-                    }
-                  >
+      {trainees.map(t => {
+        const traineeId =
+          t?.trainee_id ||
+          t?.id ||
+          "";
 
-                    <option value="">
-                      Select trainee
-                    </option>
+        return (
+          <option
+            key={
+              traineeId ||
+              t?.email ||
+              t?.name
+            }
+            value={traineeId}
+          >
+            {traineeId} -{" "}
+            {t?.name || "Unknown Trainee"}
+          </option>
+        );
+      })}
+    </select>
+  </div>
+) : (
+  <div
+    style={{
+      padding: "12px 14px",
+      borderRadius: "8px",
+      background: "#f8fafc",
+      border: "1px solid #e2e8f0"
+    }}
+  >
+    <strong>Your Skill Gap</strong>
 
-                    {trainees.map(t => {
-                      const traineeId =
-                        t?.trainee_id ||
-                        t?.id ||
-                        "";
-
-                      return (
-                        <option
-                          key={
-                            traineeId ||
-                            t?.email ||
-                            t?.name
-                          }
-                          value={traineeId}
-                        >
-                          {traineeId} -{" "}
-                          {t?.name || "Unknown Trainee"}
-                        </option>
-                      );
-                    })}
-
-                  </select>
-                </div>
+    <div
+      style={{
+        marginTop: "5px",
+        color: "#64748b"
+      }}
+    >
+      Your trainee ID: {userTraineeId}
+    </div>
+  </div>
+)}
 
                 <div
                   style={{
