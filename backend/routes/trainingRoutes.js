@@ -25,7 +25,7 @@ router.get("/", async (req, res) => {
                     training.training_id,
                     training.trainee_id,
                     trainees.name AS trainee_name,
-                    training.course,
+                    training.skill,
                     training.course_provider,
                     training.start_date,
                     training.end_date,
@@ -62,7 +62,7 @@ router.get("/", async (req, res) => {
                 training.training_id,
                 training.trainee_id,
                 trainees.name AS trainee_name,
-                training.course,
+                training.skill,
                 training.course_provider,
                 training.start_date,
                 training.end_date,
@@ -102,7 +102,7 @@ router.post("/", async (req, res) => {
 
         const {
             trainee_id,
-            course,
+            skill,
             course_provider,
             start_date,
             end_date,
@@ -155,16 +155,16 @@ router.post("/", async (req, res) => {
         }
 
 
-        if (!course || !course.trim()) {
+        if (!skill || !skill.trim()) {
 
             return res.status(400).json({
-                error: "Course is required"
+                error: "Skill is required"
             });
         }
 
 
         // =================================================
-        // INSERT
+        // INSERT TRAINING
         // =================================================
 
         const result = await pool.query(
@@ -172,7 +172,7 @@ router.post("/", async (req, res) => {
             INSERT INTO public.training
             (
                 trainee_id,
-                course,
+                skill,
                 course_provider,
                 start_date,
                 end_date,
@@ -184,13 +184,24 @@ router.post("/", async (req, res) => {
             `,
             [
                 finalTraineeId,
-                course.trim(),
+                skill.trim(),
                 course_provider?.trim() || null,
                 start_date || null,
                 end_date || null,
                 assessment_score ?? null
             ]
         );
+
+
+        // =================================================
+        // IMPORTANT
+        //
+        // Training Skill ko Trainee Course me sync
+        // NAHI kiya jayega.
+        //
+        // Trainee Course aur Training Skill
+        // completely separate rahenge.
+        // =================================================
 
 
         return res.status(201).json({
@@ -227,7 +238,7 @@ router.put("/:id", async (req, res) => {
 
         const {
             trainee_id,
-            course,
+            skill,
             course_provider,
             start_date,
             end_date,
@@ -262,12 +273,30 @@ router.put("/:id", async (req, res) => {
 
         if (isAdmin) {
 
+            if (!trainee_id) {
+
+                return res.status(400).json({
+                    error:
+                        "Trainee ID is required"
+                });
+            }
+
+
+            if (!skill || !skill.trim()) {
+
+                return res.status(400).json({
+                    error:
+                        "Skill is required"
+                });
+            }
+
+
             const result = await pool.query(
                 `
                 UPDATE public.training
                 SET
                     trainee_id = $1,
-                    course = $2,
+                    skill = $2,
                     course_provider = $3,
                     start_date = $4,
                     end_date = $5,
@@ -277,7 +306,7 @@ router.put("/:id", async (req, res) => {
                 `,
                 [
                     trainee_id,
-                    course?.trim(),
+                    skill.trim(),
                     course_provider?.trim() || null,
                     start_date || null,
                     end_date || null,
@@ -325,11 +354,20 @@ router.put("/:id", async (req, res) => {
         // Ownership database level par check hogi.
         // =================================================
 
+        if (!skill || !skill.trim()) {
+
+            return res.status(400).json({
+                error:
+                    "Skill is required"
+            });
+        }
+
+
         const result = await pool.query(
             `
             UPDATE public.training
             SET
-                course = $1,
+                skill = $1,
                 course_provider = $2,
                 start_date = $3,
                 end_date = $4,
@@ -339,7 +377,7 @@ router.put("/:id", async (req, res) => {
             RETURNING *
             `,
             [
-                course?.trim(),
+                skill.trim(),
                 course_provider?.trim() || null,
                 start_date || null,
                 end_date || null,
