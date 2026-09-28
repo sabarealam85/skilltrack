@@ -3153,7 +3153,8 @@ function Table({
   onEdit,
   onDelete,
   onSelect,
-  employment = []
+  employment = [],
+  training = []
 }) {
   const getTraineeId = (trainee) => {
     return (
@@ -3173,8 +3174,70 @@ function Table({
     );
   };
 
+  // =====================================================
+  // PROGRAMME
+  // First: training table se latest course
+  // Fallback: trainees.course
+  // =====================================================
+  const getProgramme = (trainee) => {
+    const traineeId = String(
+      getTraineeId(trainee)
+    ).trim();
+
+    if (!traineeId) {
+      return trainee?.course || "—";
+    }
+
+    const traineeTraining = training
+      .filter((item) => {
+        const trainingTraineeId = String(
+          item?.trainee_id ||
+          item?.traineeId ||
+          item?.trainee ||
+          ""
+        ).trim();
+
+        return (
+          trainingTraineeId &&
+          trainingTraineeId === traineeId
+        );
+      })
+      .sort((a, b) => {
+        const dateDiff =
+          new Date(b?.start_date || 0) -
+          new Date(a?.start_date || 0);
+
+        if (dateDiff !== 0) {
+          return dateDiff;
+        }
+
+        return (
+          Number(b?.training_id || 0) -
+          Number(a?.training_id || 0)
+        );
+      });
+
+    // Training record available hai
+    if (traineeTraining.length > 0) {
+      return (
+        traineeTraining[0]?.course ||
+        trainee?.course ||
+        "—"
+      );
+    }
+
+    // Training record nahi hai
+    return trainee?.course || "—";
+  };
+
+
+  // =====================================================
+  // PROGRAMME STATUS
+  // =====================================================
   const getProgrammeStatus = (trainee) => {
-    const traineeId = String(getTraineeId(trainee)).trim();
+    const traineeId = String(
+      getTraineeId(trainee)
+    ).trim();
 
     if (!traineeId) {
       return "Outcome Pending";
@@ -3220,9 +3283,11 @@ function Table({
     return "Outcome Pending";
   };
 
+
   return (
     <div className="table-wrap">
       <table>
+
         <thead>
           <tr>
             <th>Trainee</th>
@@ -3234,18 +3299,35 @@ function Table({
         </thead>
 
         <tbody>
+
           {rows.map((t) => {
-            const traineeId = getTraineeId(t);
-            const location = getLocation(t);
-            const status = getProgrammeStatus(t);
+
+            const traineeId =
+              getTraineeId(t);
+
+            const location =
+              getLocation(t);
+
+            const programme =
+              getProgramme(t);
+
+            const status =
+              getProgrammeStatus(t);
 
             return (
               <tr
-                key={traineeId || t.email || t.name}
-                onClick={() =>
-                  onSelect && onSelect(t)
+                key={
+                  traineeId ||
+                  t.email ||
+                  t.name
                 }
-                style={{ cursor: "pointer" }}
+                onClick={() =>
+                  onSelect &&
+                  onSelect(t)
+                }
+                style={{
+                  cursor: "pointer"
+                }}
               >
 
                 {/* TRAINEE */}
@@ -3263,68 +3345,85 @@ function Table({
                     </div>
 
                     <span>
-                      <b>{t?.name || "—"}</b>
+
+                      <b>
+                        {t?.name || "—"}
+                      </b>
 
                       <small>
                         {traineeId || "—"}
                       </small>
+
                     </span>
 
                   </div>
                 </td>
 
+
                 {/* PROGRAMME */}
                 <td>
-                  {t?.course || "—"}
+                  {programme}
                 </td>
+
 
                 {/* STATUS */}
                 <td>
                   <Status s={status} />
                 </td>
 
+
                 {/* LOCATION */}
                 <td>
                   {location}
                 </td>
 
+
                 {/* ACTIONS */}
-               {/* ACTIONS */}
-<td>
-  <div
-    className="trainee-actions"
-    onClick={(e) => e.stopPropagation()}
-  >
+                <td>
 
-    {onEdit && (
-      <button
-        className="trainee-edit-button"
-        onClick={() => onEdit(t)}
-      >
-        <span>✏</span>
-        <span>Edit</span>
-      </button>
-    )}
+                  <div
+                    className="trainee-actions"
+                    onClick={(e) =>
+                      e.stopPropagation()
+                    }
+                  >
 
-    {onDelete && (
-      <button
-        className="trainee-delete-button"
-        onClick={() => onDelete(t)}
-      >
-        <span>🗑</span>
-        <span>Delete</span>
-      </button>
-    )}
+                    {onEdit && (
+                      <button
+                        className="trainee-edit-button"
+                        onClick={() =>
+                          onEdit(t)
+                        }
+                      >
+                        <span>✏</span>
+                        <span>Edit</span>
+                      </button>
+                    )}
 
-  </div>
-</td>
+                    {onDelete && (
+                      <button
+                        className="trainee-delete-button"
+                        onClick={() =>
+                          onDelete(t)
+                        }
+                      >
+                        <span>🗑</span>
+                        <span>Delete</span>
+                      </button>
+                    )}
+
+                  </div>
+
+                </td>
 
               </tr>
             );
           })}
 
+
           {rows.length === 0 && (
             <tr>
+
               <td
                 colSpan="5"
                 style={{
@@ -3334,10 +3433,12 @@ function Table({
               >
                 No trainees found.
               </td>
+
             </tr>
           )}
 
         </tbody>
+
       </table>
     </div>
   );
@@ -3660,29 +3761,25 @@ function Trainees({
                   )
                 : null
           }
-        : {
-            trainee_id:
-              traineeId.trim(),
-
-            name:
-              traineeName.trim(),
-
-            email:
-              traineeEmail
-                .trim()
-                .toLowerCase(),
-
-            date_of_birth:
-              traineeDob || null,
-
-            location:
-              traineeLocation.trim() ||
-              null,
-
-            phone:
-              traineePhone.trim() ||
-              null
-          };
+: {
+    trainee_id: traineeId.trim(),
+    name: traineeName.trim(),
+    email: traineeEmail.trim().toLowerCase(),
+    date_of_birth: traineeDob || null,
+    location: traineeLocation.trim() || null,
+    phone: traineePhone.trim() || null,
+    course: traineeCourse.trim(),
+    district: traineeDistrict.trim(),
+    provider: traineeProvider.trim(),
+    gender: traineeGender.trim(),
+    age: traineeAge ? Number(traineeAge) : null,
+    training_year: trainingYear ? Number(trainingYear) : null,
+    status: editingTrainee?.status || null,
+confidence:
+  traineeConfidence !== ""
+    ? Number(traineeConfidence)
+    : null
+};
 
 
       const response = await authFetch(
@@ -4688,10 +4785,8 @@ function Trainees({
               </div>
 
 
-              {/* ADMIN ONLY FIELDS */}
-
-              {isAdmin && (
-                <>
+            {/* COURSE / TRAINING DETAILS */}
+<>
 
                   {/* COURSE */}
 
@@ -4861,7 +4956,7 @@ function Trainees({
                   </div>
 
                 </>
-              )}
+              
 
 
               {/* SAVE */}
@@ -5491,11 +5586,17 @@ function TraineeCard({t}){return <div className="card trainee-card"><div classNa
 
 function PageIntro({title,text}){return <section className="page-intro"><div><p className="eyebrow">SKILLTRACK MODULE</p><h2>{title}</h2><p>{text}</p></div><div className="intro-icon"><Sparkles size={28}/></div></section>}
 function Training({ trainees, training, setTraining, currentUser }) {
+
   const isAdmin = currentUser?.role === "admin";
 
-  const [selectedTrainee, setSelectedTrainee] = React.useState(null);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
+  const [selectedTrainee, setSelectedTrainee] =
+    React.useState(null);
+
+  const [showForm, setShowForm] =
+    useState(false);
+
+  const [editingId, setEditingId] =
+    useState(null);
 
   const [form, setForm] = useState({
     trainee_id: "",
@@ -5506,7 +5607,13 @@ function Training({ trainees, training, setTraining, currentUser }) {
     assessment_score: ""
   });
 
+
+  // =====================================================
+  // RESET FORM
+  // =====================================================
+
   const resetForm = () => {
+
     setForm({
       trainee_id: "",
       course: "",
@@ -5519,333 +5626,974 @@ function Training({ trainees, training, setTraining, currentUser }) {
     setEditingId(null);
   };
 
+
+  // =====================================================
+  // CLOSE FORM
+  // =====================================================
+
   const handleClose = () => {
+
     setShowForm(false);
+
     resetForm();
   };
 
+
+  // =====================================================
+  // OPEN ADD TRAINING
+  // =====================================================
+
+  const handleAddTraining = () => {
+
+    resetForm();
+
+    // NORMAL USER → automatically use own trainee ID
+    if (!isAdmin) {
+
+      setForm({
+        trainee_id:
+          currentUser?.trainee_id || "",
+        course: "",
+        course_provider: "",
+        start_date: "",
+        end_date: "",
+        assessment_score: ""
+      });
+    }
+
+    setShowForm(true);
+  };
+
+
+  // =====================================================
+  // OPEN EDIT TRAINING
+  // =====================================================
+
+  const handleEditTraining = (item) => {
+
+    const itemTraineeId =
+      item?.trainee_id ||
+      item?.traineeId ||
+      item?.trainee ||
+      "";
+
+    // NORMAL USER → only own record
+    if (
+      !isAdmin &&
+      String(itemTraineeId).trim() !==
+        String(currentUser?.trainee_id || "").trim()
+    ) {
+
+      alert(
+        "You can only edit your own training record."
+      );
+
+      return;
+    }
+
+
+    setForm({
+
+      trainee_id:
+        itemTraineeId,
+
+      course:
+        item?.course || "",
+
+      course_provider:
+        item?.course_provider || "",
+
+      start_date:
+        item?.start_date
+          ? String(item.start_date).slice(0, 10)
+          : "",
+
+      end_date:
+        item?.end_date
+          ? String(item.end_date).slice(0, 10)
+          : "",
+
+      assessment_score:
+        item?.assessment_score ?? ""
+
+    });
+
+
+    setEditingId(
+      item?.training_id
+    );
+
+    setShowForm(true);
+  };
+
+
+  // =====================================================
+  // SAVE / UPDATE TRAINING
+  // =====================================================
+
+  const handleSaveTraining = async () => {
+
+    try {
+
+      // =================================================
+      // TRAINEE ID
+      // =================================================
+
+      const finalTraineeId = isAdmin
+        ? form.trainee_id
+        : currentUser?.trainee_id;
+
+
+      if (!finalTraineeId) {
+
+        alert(
+          "No trainee profile is linked to this account."
+        );
+
+        return;
+      }
+
+
+      // =================================================
+      // COURSE VALIDATION
+      // =================================================
+
+      if (!form.course.trim()) {
+
+        alert(
+          "Please enter course name."
+        );
+
+        return;
+      }
+
+
+      // =================================================
+      // SAVE BODY
+      // =================================================
+
+      const body = {
+
+        trainee_id:
+          finalTraineeId,
+
+        course:
+          form.course.trim(),
+
+        course_provider:
+          form.course_provider.trim() || null,
+
+        start_date:
+          form.start_date || null,
+
+        end_date:
+          form.end_date || null,
+
+        assessment_score:
+          form.assessment_score === ""
+            ? null
+            : Number(form.assessment_score)
+
+      };
+
+
+      // =================================================
+      // API URL
+      // =================================================
+
+      const url = editingId
+
+        ? `${API_URL}/api/training/${editingId}`
+
+        : `${API_URL}/api/training`;
+
+
+      // =================================================
+      // API REQUEST
+      // =================================================
+
+      const response = await authFetch(
+
+        url,
+
+        {
+
+          method:
+            editingId
+              ? "PUT"
+              : "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body:
+            JSON.stringify(body)
+
+        }
+
+      );
+
+
+      // =================================================
+      // ERROR
+      // =================================================
+
+      if (!response.ok) {
+
+        const errorData =
+          await response
+            .json()
+            .catch(() => ({}));
+
+        throw new Error(
+
+          errorData?.message ||
+          errorData?.error ||
+          "Failed to save training"
+
+        );
+      }
+
+
+      await response.json();
+
+
+      // =================================================
+      // REFRESH TRAINING DATA
+      // =================================================
+
+      const trainingResponse =
+        await authFetch(
+          `${API_URL}/api/training`
+        );
+
+
+      if (!trainingResponse.ok) {
+
+        throw new Error(
+          "Training record saved, but data could not be refreshed."
+        );
+      }
+
+
+      const updatedTraining =
+        await trainingResponse.json();
+
+
+      setTraining(
+        updatedTraining
+      );
+
+
+      // =================================================
+      // SUCCESS MESSAGE
+      // =================================================
+
+      alert(
+
+        editingId
+
+          ? "Training record updated successfully!"
+
+          : "Training record added successfully!"
+
+      );
+
+
+      handleClose();
+
+
+    } catch (error) {
+
+      console.error(
+        "Training save error:",
+        error
+      );
+
+      alert(
+        "ERROR: " +
+        error.message
+      );
+
+    }
+  };
+
+
+  // =====================================================
+  // DELETE TRAINING
+  // ADMIN ONLY
+  // =====================================================
+
+  const handleDeleteTraining = async (item) => {
+
+    if (!isAdmin) {
+
+      alert(
+        "Only admin can delete training records."
+      );
+
+      return;
+    }
+
+
+    const confirmed =
+      window.confirm(
+        "Are you sure you want to delete this training record?"
+      );
+
+
+    if (!confirmed) {
+      return;
+    }
+
+
+    try {
+
+      const response =
+        await authFetch(
+
+          `${API_URL}/api/training/${item.training_id}`,
+
+          {
+            method: "DELETE"
+          }
+
+        );
+
+
+      if (!response.ok) {
+
+        const errorData =
+          await response
+            .json()
+            .catch(() => ({}));
+
+        throw new Error(
+          errorData?.error ||
+          "Failed to delete training"
+        );
+      }
+
+
+      alert(
+        "Training record deleted successfully!"
+      );
+
+
+      setTraining(
+        prev =>
+          prev.filter(
+            t =>
+              t.training_id !==
+              item.training_id
+          )
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Training delete error:",
+        error
+      );
+
+      alert(
+        "ERROR: " +
+        error.message
+      );
+
+    }
+  };
+
+
+  // =====================================================
+  // RETURN
+  // =====================================================
+
   return (
+
     <div className="content training-page">
 
+
       <PageIntro
+
         title="Training & assessment"
+
         text="Track enrolment, attendance, assessment scores and certification in one lifecycle record."
+
       />
 
-      {/* ADD TRAINING BUTTON */}
-      {isAdmin && (
-        <div className="training-add-wrapper">
-          <button
-            className="training-add-button"
-            onClick={() => {
-              resetForm();
-              setShowForm(true);
-            }}
-          >
-            <span className="training-add-icon">+</span>
-            <span>Add Training</span>
-          </button>
-        </div>
-      )}
 
-      {/* POPUP */}
-      {showForm && showForm && createPortal (
-        <div className="training-modal-overlay">
+      {/* =================================================
+          ADD TRAINING BUTTON
+      ================================================= */}
 
-          <div className="training-modal">
+      <div className="training-add-wrapper">
 
-            <div className="training-modal-header">
-              <div>
-                <div className="training-modal-title">
-                  <span className="training-modal-icon">▣</span>
-                  <span>
+        <button
+
+          className="training-add-button"
+
+          onClick={
+            handleAddTraining
+          }
+
+        >
+
+          <span className="training-add-icon">
+            +
+          </span>
+
+          <span>
+            {isAdmin
+              ? "Add Training"
+              : "Add My Training"}
+          </span>
+
+        </button>
+
+      </div>
+
+
+      {/* =================================================
+          TRAINING FORM POPUP
+      ================================================= */}
+
+      {showForm &&
+        createPortal(
+
+          <div className="training-modal-overlay">
+
+            <div className="training-modal">
+
+
+              {/* HEADER */}
+
+              <div className="training-modal-header">
+
+                <div>
+
+                  <div className="training-modal-title">
+
+                    <span className="training-modal-icon">
+                      ▣
+                    </span>
+
+                    <span>
+
+                      {editingId
+
+                        ? (
+                            isAdmin
+                              ? "Edit Training Record"
+                              : "Edit My Training"
+                          )
+
+                        : (
+                            isAdmin
+                              ? "Add Training Record"
+                              : "Add My Training"
+                          )
+
+                      }
+
+                    </span>
+
+                  </div>
+
+
+                  <p>
+
                     {editingId
-                      ? "Edit Training Record"
-                      : "Add Training Record"}
-                  </span>
-                </div>
 
-                <p>
-                  {editingId
-                    ? "Update the training details below."
-                    : "Enter the training and assessment details below."}
-                </p>
-              </div>
+                      ? "Update the training details below."
 
-              <button
-                type="button"
-                className="training-close-icon"
-                onClick={handleClose}
-                title="Close"
-              >
-                ×
-              </button>
-            </div>
+                      : "Enter the training and assessment details below."
 
-            <Card
-              title="Training Record"
-              subtitle="Add or edit training details"
-            >
-
-              {/* CLOSE BUTTON */}
-              <button
-                type="button"
-                className="training-close-button"
-                onClick={handleClose}
-              >
-                <span>×</span>
-                <span>Close</span>
-              </button>
-
-              {/* FORM */}
-              <div className="training-form-grid">
-
-                {/* TRAINEE */}
-                <div className="training-field">
-                  <label>
-                    <span className="field-icon">♙</span>
-                    Trainee
-                  </label>
-
-                  <select
-                    value={form.trainee_id}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        trainee_id: e.target.value
-                      })
                     }
-                  >
-                    <option value="">
-                      Select Trainee
-                    </option>
 
-                    {trainees.map((trainee) => {
-                      const traineeId =
-                        trainee?.trainee_id ||
-                        trainee?.id ||
-                        "";
+                  </p>
 
-                      return (
-                        <option
-                          key={
-                            traineeId ||
-                            trainee?.email ||
-                            trainee?.name
-                          }
-                          value={traineeId}
-                        >
-                          {traineeId || "No ID"} -{" "}
-                          {trainee?.name ||
-                            "Unknown Trainee"}
-                        </option>
-                      );
-                    })}
-                  </select>
                 </div>
 
-                {/* COURSE */}
-                <div className="training-field">
-                  <label>
-                    <span className="field-icon">▣</span>
-                    Course
-                  </label>
-
-                  <input
-                    placeholder="Enter course name"
-                    value={form.course}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        course: e.target.value
-                      })
-                    }
-                  />
-                </div>
-
-                {/* COURSE PROVIDER */}
-                <div className="training-field">
-                  <label>
-                    <span className="field-icon">▤</span>
-                    Course Provider
-                  </label>
-
-                  <input
-                    placeholder="Enter course provider"
-                    value={form.course_provider}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        course_provider: e.target.value
-                      })
-                    }
-                  />
-                </div>
-
-                {/* START DATE */}
-                <div className="training-field">
-                  <label>
-                    <span className="field-icon">◷</span>
-                    Start Date
-                  </label>
-
-                  <input
-                    type="date"
-                    value={form.start_date}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        start_date: e.target.value
-                      })
-                    }
-                  />
-                </div>
-
-                {/* END DATE */}
-                <div className="training-field">
-                  <label>
-                    <span className="field-icon">◷</span>
-                    End Date
-                  </label>
-
-                  <input
-                    type="date"
-                    value={form.end_date}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        end_date: e.target.value
-                      })
-                    }
-                  />
-                </div>
-
-                {/* ASSESSMENT SCORE */}
-                <div className="training-field">
-                  <label>
-                    <span className="field-icon">★</span>
-                    Assessment Score
-                  </label>
-
-                  <input
-                    type="number"
-                    placeholder="Enter score"
-                    value={form.assessment_score}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        assessment_score: e.target.value
-                      })
-                    }
-                  />
-                </div>
-
-              </div>
-
-              {/* SAVE BUTTON */}
-              <div className="training-save-wrapper">
 
                 <button
+
                   type="button"
-                  className="training-save-button"
-                  onClick={async () => {
-                    try {
-                      if (!form.trainee_id) {
-                        alert("Please select a trainee.");
-                        return;
-                      }
 
-                      const response = await authFetch(
-                        editingId
-                          ? `${API_URL}/api/training/${editingId}`
-                          : `${API_URL}/api/training`,
-                        {
-                          method: editingId
-                            ? "PUT"
-                            : "POST",
+                  className="training-close-icon"
 
-                          headers: {
-                            "Content-Type":
-                              "application/json"
-                          },
+                  onClick={
+                    handleClose
+                  }
 
-                          body: JSON.stringify(form)
-                        }
-                      );
+                  title="Close"
 
-                      if (!response.ok) {
-                        const errorData =
-                          await response
-                            .json()
-                            .catch(() => ({}));
-
-                        throw new Error(
-                          errorData?.message ||
-                            errorData?.error ||
-                            "Failed to save training"
-                        );
-                      }
-
-                      await response.json();
-
-                      const updatedTraining =
-                        await authFetch(
-                          `${API_URL}/api/training`
-                        ).then((res) =>
-                          res.json()
-                        );
-
-                      setTraining(updatedTraining);
-
-                      alert(
-                        editingId
-                          ? "Training record updated successfully!"
-                          : "Training record added successfully!"
-                      );
-
-                      handleClose();
-
-                    } catch (error) {
-                      console.error(
-                        "Training save error:",
-                        error
-                      );
-
-                      alert(
-                        "ERROR: " +
-                          error.message
-                      );
-                    }
-                  }}
                 >
-                  <span className="save-icon">
-                    ✓
-                  </span>
-
-                  <span>
-                    {editingId
-                      ? "Update Training"
-                      : "Save Training"}
-                  </span>
+                  ×
                 </button>
 
               </div>
 
-            </Card>
-          </div>
-        </div>,
-          document.body
-      )}
 
-      {/* STATS */}
+              {/* CARD */}
+
+              <Card
+
+                title="Training Record"
+
+                subtitle="Add or edit training details"
+
+              >
+
+
+                {/* CLOSE BUTTON */}
+
+                <button
+
+                  type="button"
+
+                  className="training-close-button"
+
+                  onClick={
+                    handleClose
+                  }
+
+                >
+
+                  <span>
+                    ×
+                  </span>
+
+                  <span>
+                    Close
+                  </span>
+
+                </button>
+
+
+                {/* FORM */}
+
+                <div className="training-form-grid">
+
+
+                  {/* =================================================
+                      TRAINEE
+                  ================================================= */}
+
+                  {isAdmin && (
+
+                    <div className="training-field">
+
+                      <label>
+
+                        <span className="field-icon">
+                          ♙
+                        </span>
+
+                        Trainee
+
+                      </label>
+
+
+                      <select
+
+                        value={
+                          form.trainee_id
+                        }
+
+                        onChange={
+                          (e) =>
+                            setForm({
+
+                              ...form,
+
+                              trainee_id:
+                                e.target.value
+
+                            })
+                        }
+
+                      >
+
+                        <option value="">
+                          Select Trainee
+                        </option>
+
+
+                        {trainees.map(
+                          (trainee) => {
+
+                            const traineeId =
+                              trainee?.trainee_id ||
+                              trainee?.id ||
+                              "";
+
+
+                            return (
+
+                              <option
+
+                                key={
+                                  traineeId ||
+                                  trainee?.email ||
+                                  trainee?.name
+                                }
+
+                                value={
+                                  traineeId
+                                }
+
+                              >
+
+                                {traineeId ||
+                                  "No ID"}
+
+                                {" - "}
+
+                                {trainee?.name ||
+                                  "Unknown Trainee"}
+
+                              </option>
+
+                            );
+
+                          }
+                        )}
+
+                      </select>
+
+                    </div>
+
+                  )}
+
+
+                  {/* =================================================
+                      NORMAL USER TRAINEE INFO
+                  ================================================= */}
+
+                  {!isAdmin && (
+
+                    <div className="training-field">
+
+                      <label>
+
+                        <span className="field-icon">
+                          ♙
+                        </span>
+
+                        Trainee
+
+                      </label>
+
+
+                      <input
+
+                        type="text"
+
+                        value={
+                          currentUser?.trainee_id
+                            ? `${currentUser.trainee_id} - ${
+                                currentUser?.name ||
+                                "My Profile"
+                              }`
+                            : "My Profile"
+                        }
+
+                        readOnly
+
+                      />
+
+                    </div>
+
+                  )}
+
+
+                  {/* =================================================
+                      COURSE
+                  ================================================= */}
+
+                  <div className="training-field">
+
+                    <label>
+
+                      <span className="field-icon">
+                        ▣
+                      </span>
+
+                      Course
+
+                    </label>
+
+
+                    <input
+
+                      placeholder="Enter course name"
+
+                      value={
+                        form.course
+                      }
+
+                      onChange={
+                        (e) =>
+                          setForm({
+
+                            ...form,
+
+                            course:
+                              e.target.value
+
+                          })
+                      }
+
+                    />
+
+                  </div>
+
+
+                  {/* =================================================
+                      COURSE PROVIDER
+                  ================================================= */}
+
+                  <div className="training-field">
+
+                    <label>
+
+                      <span className="field-icon">
+                        ▤
+                      </span>
+
+                      Course Provider
+
+                    </label>
+
+
+                    <input
+
+                      placeholder="Enter course provider"
+
+                      value={
+                        form.course_provider
+                      }
+
+                      onChange={
+                        (e) =>
+                          setForm({
+
+                            ...form,
+
+                            course_provider:
+                              e.target.value
+
+                          })
+                      }
+
+                    />
+
+                  </div>
+
+
+                  {/* =================================================
+                      START DATE
+                  ================================================= */}
+
+                  <div className="training-field">
+
+                    <label>
+
+                      <span className="field-icon">
+                        ◷
+                      </span>
+
+                      Start Date
+
+                    </label>
+
+
+                    <input
+
+                      type="date"
+
+                      value={
+                        form.start_date
+                      }
+
+                      onChange={
+                        (e) =>
+                          setForm({
+
+                            ...form,
+
+                            start_date:
+                              e.target.value
+
+                          })
+                      }
+
+                    />
+
+                  </div>
+
+
+                  {/* =================================================
+                      END DATE
+                  ================================================= */}
+
+                  <div className="training-field">
+
+                    <label>
+
+                      <span className="field-icon">
+                        ◷
+                      </span>
+
+                      End Date
+
+                    </label>
+
+
+                    <input
+
+                      type="date"
+
+                      value={
+                        form.end_date
+                      }
+
+                      onChange={
+                        (e) =>
+                          setForm({
+
+                            ...form,
+
+                            end_date:
+                              e.target.value
+
+                          })
+                      }
+
+                    />
+
+                  </div>
+
+
+                  {/* =================================================
+                      ASSESSMENT SCORE
+                  ================================================= */}
+
+                  <div className="training-field">
+
+                    <label>
+
+                      <span className="field-icon">
+                        ★
+                      </span>
+
+                      Assessment Score
+
+                    </label>
+
+
+                    <input
+
+                      type="number"
+
+                      placeholder="Enter score"
+
+                      value={
+                        form.assessment_score
+                      }
+
+                      onChange={
+                        (e) =>
+                          setForm({
+
+                            ...form,
+
+                            assessment_score:
+                              e.target.value
+
+                          })
+                      }
+
+                    />
+
+                  </div>
+
+
+                </div>
+
+
+                {/* =================================================
+                    SAVE BUTTON
+                ================================================= */}
+
+                <div className="training-save-wrapper">
+
+                  <button
+
+                    type="button"
+
+                    className="training-save-button"
+
+                    onClick={
+                      handleSaveTraining
+                    }
+
+                  >
+
+                    <span className="save-icon">
+                      ✓
+                    </span>
+
+                    <span>
+
+                      {editingId
+
+                        ? "Update Training"
+
+                        : "Save Training"
+
+                      }
+
+                    </span>
+
+                  </button>
+
+                </div>
+
+
+              </Card>
+
+            </div>
+
+          </div>,
+
+          document.body
+
+        )
+      }
+
+
+      {/* =================================================
+          STATS
+      ================================================= */}
+
       <div className="stats training-stats">
 
+
+        {/* TRAINING RECORDS */}
+
         <div className="stat card training-stat-card">
+
           <div className="training-stat-icon">
             ▣
           </div>
 
           <div>
+
             <span className="training-stat-label">
               Training Records
             </span>
@@ -5853,336 +6601,490 @@ function Training({ trainees, training, setTraining, currentUser }) {
             <strong>
               {training.length}
             </strong>
+
           </div>
+
         </div>
 
+
+        {/* AVERAGE SCORE */}
+
         <div className="stat card training-stat-card">
+
           <div className="training-stat-icon">
             ★
           </div>
 
           <div>
+
             <span className="training-stat-label">
               Average Score
             </span>
 
             <strong>
+
               {training.length
+
                 ? (
+
                     training.reduce(
+
                       (sum, item) =>
+
                         sum +
                         Number(
-                          item.assessment_score ||
-                            0
+                          item.assessment_score || 0
                         ),
+
                       0
+
                     ) / training.length
+
                   ).toFixed(1)
-                : 0}
+
+                : 0
+
+              }
+
             </strong>
+
           </div>
+
         </div>
 
+
+        {/* HIGHEST SCORE */}
+
         <div className="stat card training-stat-card">
+
           <div className="training-stat-icon">
             ↑
           </div>
 
           <div>
+
             <span className="training-stat-label">
               Highest Score
             </span>
 
             <strong>
+
               {training.length
+
                 ? Math.max(
+
                     ...training.map(
+
                       (item) =>
                         Number(
-                          item.assessment_score ||
-                            0
+                          item.assessment_score || 0
                         )
+
                     )
+
                   )
-                : 0}
+
+                : 0
+
+              }
+
             </strong>
+
           </div>
+
         </div>
 
+
+        {/* LOWEST SCORE */}
+
         <div className="stat card training-stat-card">
+
           <div className="training-stat-icon">
             ↓
           </div>
 
           <div>
+
             <span className="training-stat-label">
               Lowest Score
             </span>
 
             <strong>
+
               {training.length
+
                 ? Math.min(
+
                     ...training.map(
+
                       (item) =>
                         Number(
-                          item.assessment_score ||
-                            0
+                          item.assessment_score || 0
                         )
+
                     )
+
                   )
-                : 0}
+
+                : 0
+
+              }
+
             </strong>
+
           </div>
+
         </div>
 
       </div>
 
-      {/* TRAINING TABLE */}
+
+      {/* =================================================
+          TRAINING TABLE
+      ================================================= */}
+
       <Card
+
         title="Training Records"
+
         subtitle="Records loaded from PostgreSQL"
+
       >
 
         <div className="training-table-wrapper">
 
           <table className="training-table">
 
+
             <thead>
+
               <tr>
-                <th>Training ID</th>
-                <th>Trainee ID</th>
-                <th>Trainee Name</th>
-                <th>Course</th>
-                <th>Provider</th>
-                <th>Start Date</th>
-                <th>End Date</th>
-                <th>Assessment Score</th>
-                <th>Action</th>
+
+                <th>
+                  Training ID
+                </th>
+
+                <th>
+                  Trainee ID
+                </th>
+
+                <th>
+                  Trainee Name
+                </th>
+
+                <th>
+                  Course
+                </th>
+
+                <th>
+                  Provider
+                </th>
+
+                <th>
+                  Start Date
+                </th>
+
+                <th>
+                  End Date
+                </th>
+
+                <th>
+                  Assessment Score
+                </th>
+
+                <th>
+                  Action
+                </th>
+
               </tr>
+
             </thead>
+
 
             <tbody>
 
-              {training.map((item) => {
+              {training.map(
+                (item) => {
 
-                const traineeId =
-                  item?.trainee_id ||
-                  item?.traineeId ||
-                  item?.trainee ||
-                  "";
+                  const traineeId =
+                    item?.trainee_id ||
+                    item?.traineeId ||
+                    item?.trainee ||
+                    "";
 
-                return (
-                  <tr
-                    key={
-                      item?.training_id ||
-                      traineeId
-                    }
-                  >
 
-                    <td>
-                      <span className="training-id">
-                        #{item?.training_id || "—"}
-                      </span>
-                    </td>
+                  return (
 
-                    <td>
-                      <span className="trainee-id-badge">
-                        ♙ {traineeId || "—"}
-                      </span>
-                    </td>
+                    <tr
 
-                    <td>
-                      <div className="training-name">
-                        <span className="training-avatar">
-                          {(item?.trainee_name ||
-                            "U")
-                            .charAt(0)
-                            .toUpperCase()}
-                        </span>
+                      key={
+                        item?.training_id ||
+                        traineeId
+                      }
 
-                        <span>
-                          {item?.trainee_name ||
+                    >
+
+
+                      {/* TRAINING ID */}
+
+                      <td>
+
+                        <span className="training-id">
+
+                          #
+                          {item?.training_id ||
                             "—"}
-                        </span>
-                      </div>
-                    </td>
 
-                    <td>
-                      <div className="training-course">
-                        <span className="course-icon">
-                          ▣
                         </span>
 
-                        <span>
-                          {item?.course ||
+                      </td>
+
+
+                      {/* TRAINEE ID */}
+
+                      <td>
+
+                        <span className="trainee-id-badge">
+
+                          ♙{" "}
+                          {traineeId ||
                             "—"}
+
                         </span>
-                      </div>
-                    </td>
 
-                    <td>
-                      <span className="provider-badge">
-                        {item?.course_provider ||
-                          "—"}
-                      </span>
-                    </td>
+                      </td>
 
-                    <td>
-                      <span className="date-badge">
-                        ◷{" "}
-                        {item?.start_date
-                          ?.slice(0, 10) ||
-                          "—"}
-                      </span>
-                    </td>
 
-                    <td>
-                      <span className="date-badge">
-                        ◷{" "}
-                        {item?.end_date
-                          ?.slice(0, 10) ||
-                          "—"}
-                      </span>
-                    </td>
+                      {/* TRAINEE NAME */}
 
-                    <td>
-                      <span
-                        className={
-                          Number(
-                            item?.assessment_score ||
-                              0
-                          ) >= 70
-                            ? "score-badge score-high"
-                            : Number(
-                                item?.assessment_score ||
-                                  0
-                              ) >= 40
-                            ? "score-badge score-medium"
-                            : "score-badge score-low"
-                        }
-                      >
-                        ★{" "}
-                        {item?.assessment_score ??
-                          "—"}
-                      </span>
-                    </td>
+                      <td>
 
-                    <td>
+                        <div className="training-name">
 
-                      {isAdmin && (
-                        <div className="training-actions">
+                          <span className="training-avatar">
 
-                          {/* EDIT */}
-                          <button
-                            className="training-edit-button"
-                            onClick={() => {
+                            {(
+                              item?.trainee_name ||
+                              currentUser?.name ||
+                              "U"
+                            )
+                              .charAt(0)
+                              .toUpperCase()}
 
-                              setForm({
-                                trainee_id:
-                                  item?.trainee_id ||
-                                  item?.traineeId ||
-                                  item?.trainee ||
-                                  "",
+                          </span>
 
-                                course:
-                                  item?.course ||
-                                  "",
 
-                                course_provider:
-                                  item?.course_provider ||
-                                  "",
+                          <span>
 
-                                start_date:
-                                  item?.start_date?.slice(
-                                    0,
-                                    10
-                                  ) || "",
+                            {item?.trainee_name ||
 
-                                end_date:
-                                  item?.end_date?.slice(
-                                    0,
-                                    10
-                                  ) || "",
+                              (
+                                !isAdmin &&
+                                String(traineeId) ===
+                                  String(
+                                    currentUser?.trainee_id
+                                  )
+                                  ? currentUser?.name
+                                  : "—"
+                              )
 
-                                assessment_score:
-                                  item?.assessment_score ??
-                                  ""
-                              });
+                            }
 
-                              setEditingId(
-                                item?.training_id
-                              );
-
-                              setShowForm(true);
-                            }}
-                            title="Edit training"
-                          >
-                            <span>✎</span>
-                            <span>Edit</span>
-                          </button>
-
-                          {/* DELETE */}
-                          <button
-                            className="training-delete-button"
-                            onClick={async () => {
-
-                              try {
-
-                                const response =
-                                  await authFetch(
-                                    `${API_URL}/api/training/${item.training_id}`,
-                                    {
-                                      method:
-                                        "DELETE"
-                                    }
-                                  );
-
-                                if (!response.ok) {
-                                  throw new Error(
-                                    "Failed to delete training"
-                                  );
-                                }
-
-                                alert(
-                                  "Training record deleted successfully!"
-                                );
-
-                                setTraining(
-                                  (prev) =>
-                                    prev.filter(
-                                      (t) =>
-                                        t.training_id !==
-                                        item.training_id
-                                    )
-                                );
-
-                              } catch (error) {
-
-                                console.error(
-                                  error
-                                );
-
-                                alert(
-                                  "ERROR: " +
-                                    error.message
-                                );
-                              }
-                            }}
-                            title="Delete training"
-                          >
-                            <span>🗑</span>
-                            <span>Delete</span>
-                          </button>
+                          </span>
 
                         </div>
-                      )}
 
-                    </td>
+                      </td>
 
-                  </tr>
-                );
-              })}
+
+                      {/* COURSE */}
+
+                      <td>
+
+                        <div className="training-course">
+
+                          <span className="course-icon">
+                            ▣
+                          </span>
+
+                          <span>
+
+                            {item?.course ||
+                              "—"}
+
+                          </span>
+
+                        </div>
+
+                      </td>
+
+
+                      {/* PROVIDER */}
+
+                      <td>
+
+                        <span className="provider-badge">
+
+                          {item?.course_provider ||
+                            "—"}
+
+                        </span>
+
+                      </td>
+
+
+                      {/* START DATE */}
+
+                      <td>
+
+                        <span className="date-badge">
+
+                          ◷{" "}
+
+                          {item?.start_date
+
+                            ?.slice(0, 10) ||
+
+                            "—"}
+
+                        </span>
+
+                      </td>
+
+
+                      {/* END DATE */}
+
+                      <td>
+
+                        <span className="date-badge">
+
+                          ◷{" "}
+
+                          {item?.end_date
+
+                            ?.slice(0, 10) ||
+
+                            "—"}
+
+                        </span>
+
+                      </td>
+
+
+                      {/* SCORE */}
+
+                      <td>
+
+                        <span
+
+                          className={
+
+                            Number(
+                              item?.assessment_score ||
+                              0
+                            ) >= 70
+
+                              ? "score-badge score-high"
+
+                              : Number(
+                                  item?.assessment_score ||
+                                  0
+                                ) >= 40
+
+                              ? "score-badge score-medium"
+
+                              : "score-badge score-low"
+
+                          }
+
+                        >
+
+                          ★{" "}
+
+                          {item?.assessment_score ??
+                            "—"}
+
+                        </span>
+
+                      </td>
+
+
+                      {/* ACTION */}
+
+                      <td>
+
+                        <div className="training-actions">
+
+
+                          {/* EDIT */}
+
+                          <button
+
+                            className="training-edit-button"
+
+                            onClick={() =>
+                              handleEditTraining(
+                                item
+                              )
+                            }
+
+                            title="Edit training"
+
+                          >
+
+                            <span>
+                              ✎
+                            </span>
+
+                            <span>
+                              Edit
+                            </span>
+
+                          </button>
+
+
+                          {/* DELETE → ADMIN ONLY */}
+
+                          {isAdmin && (
+
+                            <button
+
+                              className="training-delete-button"
+
+                              onClick={() =>
+                                handleDeleteTraining(
+                                  item
+                                )
+                              }
+
+                              title="Delete training"
+
+                            >
+
+                              <span>
+                                🗑
+                              </span>
+
+                              <span>
+                                Delete
+                              </span>
+
+                            </button>
+
+                          )}
+
+                        </div>
+
+                      </td>
+
+
+                    </tr>
+
+                  );
+
+                }
+
+              )}
 
             </tbody>
 
@@ -6193,7 +7095,9 @@ function Training({ trainees, training, setTraining, currentUser }) {
       </Card>
 
     </div>
+
   );
+
 }
 function Employment({
   employment,
@@ -6219,6 +7123,10 @@ function Employment({
     relevance: ""
   });
 
+  // =====================================================
+  // STATS
+  // =====================================================
+
   const placed = employment.filter(
     item => item.employer
   ).length;
@@ -6241,6 +7149,11 @@ function Employment({
       .map(item => item.employer)
   ).size;
 
+
+  // =====================================================
+  // HANDLE FORM CHANGE
+  // =====================================================
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
@@ -6249,6 +7162,11 @@ function Employment({
       [name]: type === "checkbox" ? checked : value
     }));
   };
+
+
+  // =====================================================
+  // RESET FORM
+  // =====================================================
 
   const resetForm = () => {
     setForm({
@@ -6267,7 +7185,32 @@ function Employment({
     setEditingId(null);
   };
 
+
+  // =====================================================
+  // OPEN EDIT FORM
+  // =====================================================
+
   const handleEditEmployment = (item) => {
+
+    // Normal user → sirf apna record edit kar sakta hai
+    if (!isAdmin) {
+
+      const myTraineeId = String(
+        currentUser?.trainee_id || ""
+      ).trim();
+
+      const recordTraineeId = String(
+        item?.trainee_id || ""
+      ).trim();
+
+      if (!myTraineeId || myTraineeId !== recordTraineeId) {
+        alert(
+          "You can only edit your own employment record."
+        );
+        return;
+      }
+    }
+
     setEditingId(item.employment_id);
 
     setForm({
@@ -6276,19 +7219,41 @@ function Employment({
       job_role: item.job_role || "",
       employment_type: item.employment_type || "",
       outcome_status: item.outcome_status || "",
+
       joining_date: item.joining_date
         ? String(item.joining_date).substring(0, 10)
         : "",
-      starting_salary: item.starting_salary ?? "",
-      current_salary: item.current_salary ?? "",
+
+      starting_salary:
+        item.starting_salary ?? "",
+
+      current_salary:
+        item.current_salary ?? "",
+
       retained: item.retained === true,
-      relevance: item.relevance || ""
+
+      relevance:
+        item.relevance || ""
     });
 
     setShowForm(true);
   };
 
+
+  // =====================================================
+  // DELETE EMPLOYMENT
+  // ADMIN ONLY
+  // =====================================================
+
   const handleDeleteEmployment = async (item) => {
+
+    if (!isAdmin) {
+      alert(
+        "You are not allowed to delete employment records."
+      );
+      return;
+    }
+
     const confirmDelete = window.confirm(
       "Are you sure you want to delete this employment record?"
     );
@@ -6296,6 +7261,7 @@ function Employment({
     if (!confirmDelete) return;
 
     try {
+
       const response = await authFetch(
         `${API_URL}/api/employment/${item.employment_id}`,
         {
@@ -6304,7 +7270,12 @@ function Employment({
       );
 
       if (!response.ok) {
-        throw new Error("Failed to delete employment");
+
+        const errorText = await response.text();
+
+        throw new Error(
+          errorText || "Failed to delete employment"
+        );
       }
 
       setEmployment(prev =>
@@ -6314,53 +7285,147 @@ function Employment({
         )
       );
 
-      alert("Employment record deleted successfully!");
+      alert(
+        "Employment record deleted successfully!"
+      );
 
     } catch (error) {
-      console.error(error);
-      alert("ERROR: " + error.message);
+
+      console.error(
+        "Employment Delete Error:",
+        error
+      );
+
+      alert(
+        "ERROR: " + error.message
+      );
     }
   };
+
+
+  // =====================================================
+  // SAVE / UPDATE EMPLOYMENT
+  // =====================================================
 
   const handleSaveEmployment = async (e) => {
     e.preventDefault();
 
     try {
+
       const url = editingId
         ? `${API_URL}/api/employment/${editingId}`
         : `${API_URL}/api/employment`;
 
-      const method = editingId ? "PUT" : "POST";
+      const method = editingId
+        ? "PUT"
+        : "POST";
 
-      const response = await authFetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          trainee_id: form.trainee_id,
-          employer: form.employer,
-          job_role: form.job_role,
-          employment_type: form.employment_type,
-          outcome_status: form.outcome_status,
-          joining_date: form.joining_date,
 
-          starting_salary: form.starting_salary
+      // =================================================
+      // NORMAL USER OWNERSHIP CHECK
+      // =================================================
+
+      if (!isAdmin && editingId) {
+
+        const editingRecord = employment.find(
+          item =>
+            item.employment_id === editingId
+        );
+
+        if (!editingRecord) {
+          throw new Error(
+            "Employment record not found."
+          );
+        }
+
+        const myTraineeId = String(
+          currentUser?.trainee_id || ""
+        ).trim();
+
+        const recordTraineeId = String(
+          editingRecord?.trainee_id || ""
+        ).trim();
+
+        if (
+          !myTraineeId ||
+          myTraineeId !== recordTraineeId
+        ) {
+          throw new Error(
+            "You can only update your own employment record."
+          );
+        }
+      }
+
+
+      // =================================================
+      // REQUEST BODY
+      // =================================================
+
+      const requestBody = {
+
+        // Admin ke liye trainee_id use hoga.
+        // Normal user ke case mein backend
+        // automatically token se trainee_id lega.
+        trainee_id: form.trainee_id,
+
+        employer:
+          form.employer.trim(),
+
+        job_role:
+          form.job_role.trim(),
+
+        employment_type:
+          form.employment_type,
+
+        outcome_status:
+          form.outcome_status,
+
+        joining_date:
+          form.joining_date || null,
+
+        starting_salary:
+          form.starting_salary
             ? Number(form.starting_salary)
             : null,
 
-          current_salary: form.current_salary
+        current_salary:
+          form.current_salary
             ? Number(form.current_salary)
             : null,
 
-          retained: form.retained,
+        retained:
+          form.retained,
 
-          relevance: form.relevance || null
-        })
-      });
+        relevance:
+          form.relevance || null
+      };
+
+
+      const response = await authFetch(
+        url,
+        {
+          method,
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify(
+            requestBody
+          )
+        }
+      );
+
+
+      // =================================================
+      // API ERROR
+      // =================================================
 
       if (!response.ok) {
-        const errorText = await response.text();
+
+        const errorText =
+          await response.text();
 
         console.error(
           "Employment API Error:",
@@ -6369,13 +7434,26 @@ function Employment({
         );
 
         throw new Error(
-          errorText || "Failed to save employment"
+          errorText ||
+          "Failed to save employment"
         );
       }
 
-      const result = await response.json();
+
+      // =================================================
+      // SUCCESS RESPONSE
+      // =================================================
+
+      const result =
+        await response.json();
+
+
+      // =================================================
+      // UPDATE EXISTING RECORD
+      // =================================================
 
       if (editingId) {
+
         setEmployment(prev =>
           prev.map(item =>
             item.employment_id === editingId
@@ -6384,47 +7462,107 @@ function Employment({
           )
         );
 
-        alert("Employment record updated successfully!");
-      } else {
+        alert(
+          isAdmin
+            ? "Employment record updated successfully!"
+            : "Your employment record updated successfully!"
+        );
+
+      }
+
+      // =================================================
+      // ADD NEW RECORD
+      // =================================================
+
+      else {
+
         setEmployment(prev => [
           result.employment,
           ...prev
         ]);
 
-        alert("Employment record added successfully!");
+        alert(
+          isAdmin
+            ? "Employment record added successfully!"
+            : "Your employment record added successfully!"
+        );
       }
+
 
       resetForm();
       setShowForm(false);
 
     } catch (error) {
-      console.error("Employment Save Error:", error);
-      alert("ERROR: " + error.message);
+
+      console.error(
+        "Employment Save Error:",
+        error
+      );
+
+      alert(
+        "ERROR: " + error.message
+      );
     }
   };
+
+
+  // =====================================================
+  // OPEN ADD FORM
+  // =====================================================
+
+  const handleAddEmployment = () => {
+
+    resetForm();
+    setShowForm(true);
+  };
+
+
+  // =====================================================
+  // RETURN
+  // =====================================================
 
   return (
     <div className="content employment-page">
 
       <PageIntro
         title="Employment outcomes"
-        text="Follow placement, employer verification, retention and wage progression after certification."
+        text={
+          isAdmin
+            ? "Follow placement, employer verification, retention and wage progression after certification."
+            : "Add and update your employment outcome details after certification."
+        }
       />
 
+
+      {/* =================================================
+          TOOLBAR
+          ================================================= */}
+
       <div className="employment-toolbar">
-       {isAdmin && (
-  <button
-    className="employment-add-button"
-    onClick={() => {
-      resetForm();
-      setShowForm(true);
-    }}
-  >
-    <span className="employment-add-icon">+</span>
-    <span>Add Employment</span>
-  </button>
-)}
+
+        <button
+          className="employment-add-button"
+          onClick={handleAddEmployment}
+        >
+
+          <span className="employment-add-icon">
+            +
+          </span>
+
+          <span>
+            {isAdmin
+              ? "Add Employment"
+              : "Add My Employment"}
+          </span>
+
+        </button>
+
       </div>
+
+
+      {/* =================================================
+          STATS
+          ================================================= */}
 
       <div className="stats employment-stats">
 
@@ -6450,6 +7588,11 @@ function Employment({
 
       </div>
 
+
+      {/* =================================================
+          CHART
+          ================================================= */}
+
       <Card
         title="Employment and wage progression"
         subtitle="Real employment data from database"
@@ -6457,7 +7600,10 @@ function Employment({
 
         <div className="employment-chart">
 
-          <ResponsiveContainer width="100%" height={310}>
+          <ResponsiveContainer
+            width="100%"
+            height={310}
+          >
 
             <BarChart
               data={employment.filter(
@@ -6470,7 +7616,9 @@ function Employment({
                 vertical={false}
               />
 
-              <XAxis dataKey="trainee_id" />
+              <XAxis
+                dataKey="trainee_id"
+              />
 
               <YAxis />
 
@@ -6480,14 +7628,24 @@ function Employment({
                 dataKey="starting_salary"
                 name="Starting Salary"
                 fill="#1769aa"
-                radius={[5, 5, 0, 0]}
+                radius={[
+                  5,
+                  5,
+                  0,
+                  0
+                ]}
               />
 
               <Bar
                 dataKey="current_salary"
                 name="Current Salary"
                 fill="#21a179"
-                radius={[5, 5, 0, 0]}
+                radius={[
+                  5,
+                  5,
+                  0,
+                  0
+                ]}
               />
 
             </BarChart>
@@ -6498,369 +7656,590 @@ function Employment({
 
       </Card>
 
-      {isAdmin && showForm && createPortal (
 
-        <div className="employment-modal-overlay">
+      {/* =================================================
+          EMPLOYMENT FORM MODAL
+          ADMIN + NORMAL USER
+          ================================================= */}
 
-          <div className="employment-modal">
+      {showForm &&
+        createPortal(
 
-            <div className="employment-modal-header">
+          <div className="employment-modal-overlay">
 
-              <div className="employment-modal-title">
+            <div className="employment-modal">
 
-                <div className="employment-modal-icon">
-                  {editingId ? "✎" : "+"}
-                </div>
 
-                <div>
-                  <h2>
+              {/* =================================================
+                  MODAL HEADER
+                  ================================================= */}
+
+              <div className="employment-modal-header">
+
+                <div className="employment-modal-title">
+
+                  <div className="employment-modal-icon">
+
                     {editingId
-                      ? "Edit Employment Record"
-                      : "Add Employment Record"}
-                  </h2>
+                      ? "✎"
+                      : "+"}
 
-                  <p>
-                    Enter employment outcome details
-                  </p>
-                </div>
+                  </div>
 
-              </div>
+                  <div>
 
-              <button
-                type="button"
-                className="employment-close-button"
-                onClick={() => {
-                  setShowForm(false);
-                  resetForm();
-                }}
-              >
-                ×
-              </button>
+                    <h2>
 
-            </div>
+                      {editingId
+                        ? (
+                          isAdmin
+                            ? "Edit Employment Record"
+                            : "Edit My Employment"
+                        )
+                        : (
+                          isAdmin
+                            ? "Add Employment Record"
+                            : "Add My Employment"
+                        )}
 
-            <form onSubmit={handleSaveEmployment}>
+                    </h2>
 
-              <div className="employment-form-grid">
+                    <p>
 
-                <div className="employment-field">
+                      {isAdmin
+                        ? "Enter employment outcome details"
+                        : "Enter your employment outcome details"}
 
-                  <label>
-                    <span>♙</span>
-                    Trainee
-                  </label>
+                    </p>
 
-                  <select
-                    name="trainee_id"
-                    value={form.trainee_id}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">
-                      Select Trainee
-                    </option>
-
-                    {trainees.map((trainee) => {
-                      const traineeId =
-                        trainee?.trainee_id ||
-                        trainee?.id ||
-                        "";
-
-                      return (
-                        <option
-                          key={
-                            traineeId ||
-                            trainee?.email ||
-                            trainee?.name
-                          }
-                          value={traineeId}
-                        >
-                          {trainee?.name || "Unknown Trainee"}{" "}
-                          ({traineeId || "No ID"})
-                        </option>
-                      );
-                    })}
-
-                  </select>
+                  </div>
 
                 </div>
 
-                <div className="employment-field">
-
-                  <label>
-                    <span>▣</span>
-                    Employer
-                  </label>
-
-                  <input
-                    name="employer"
-                    placeholder="Enter employer name"
-                    value={form.employer}
-                    onChange={handleChange}
-                    required
-                  />
-
-                </div>
-
-                <div className="employment-field">
-
-                  <label>
-                    <span>▤</span>
-                    Job Role
-                  </label>
-
-                  <input
-                    name="job_role"
-                    placeholder="Enter job role"
-                    value={form.job_role}
-                    onChange={handleChange}
-                    required
-                  />
-
-                </div>
-
-                <div className="employment-field">
-
-                  <label>
-                    <span>◈</span>
-                    Employment Type
-                  </label>
-
-                  <select
-                    name="employment_type"
-                    value={form.employment_type}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">
-                      Employment Type
-                    </option>
-
-                    <option value="Full-time">
-                      Full-time
-                    </option>
-
-                    <option value="Part-time">
-                      Part-time
-                    </option>
-
-                    <option value="Internship">
-                      Internship
-                    </option>
-
-                    <option value="Apprenticeship">
-                      Apprenticeship
-                    </option>
-
-                    <option value="Contract">
-                      Contract
-                    </option>
-
-                  </select>
-
-                </div>
-
-                <div className="employment-field">
-
-                  <label>
-                    <span>✓</span>
-                    Outcome Status
-                  </label>
-
-                  <select
-                    name="outcome_status"
-                    value={form.outcome_status}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">
-                      Outcome Status
-                    </option>
-
-                    <option value="Employed">
-                      Employed
-                    </option>
-
-                    <option value="Self-Employed">
-                      Self-Employed
-                    </option>
-
-                    <option value="Unemployed">
-                      Unemployed
-                    </option>
-
-                    <option value="Job Seeking">
-                      Job Seeking
-                    </option>
-
-                    <option value="Higher Studies">
-                      Higher Studies
-                    </option>
-
-                    <option value="Not Looking for Work">
-                      Not Looking for Work
-                    </option>
-
-                    <option value="Training">
-                      Training
-                    </option>
-
-                  </select>
-
-                </div>
-
-                <div className="employment-field">
-
-                  <label>
-                    <span>◷</span>
-                    Joining Date
-                  </label>
-
-                  <input
-                    type="date"
-                    name="joining_date"
-                    value={form.joining_date}
-                    onChange={handleChange}
-                    required
-                  />
-
-                </div>
-
-                <div className="employment-field">
-
-                  <label>
-                    <span>₹</span>
-                    Starting Salary
-                  </label>
-
-                  <input
-                    type="number"
-                    name="starting_salary"
-                    placeholder="Starting Salary"
-                    value={form.starting_salary}
-                    onChange={handleChange}
-                  />
-
-                </div>
-
-                <div className="employment-field">
-
-                  <label>
-                    <span>₹</span>
-                    Current Salary
-                  </label>
-
-                  <input
-                    type="number"
-                    name="current_salary"
-                    placeholder="Current Salary"
-                    value={form.current_salary}
-                    onChange={handleChange}
-                  />
-
-                </div>
-
-                <div className="employment-field">
-
-                  <label>
-                    <span>★</span>
-                    Training Relevance
-                  </label>
-
-                  <select
-                    name="relevance"
-                    value={form.relevance}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">
-                      Select Relevance
-                    </option>
-
-                    <option value="High">
-                      High
-                    </option>
-
-                    <option value="Medium">
-                      Medium
-                    </option>
-
-                    <option value="Low">
-                      Low
-                    </option>
-
-                    <option value="Not Relevant">
-                      Not Relevant
-                    </option>
-
-                    <option value="Not Assessed">
-                      Not Assessed
-                    </option>
-
-                  </select>
-
-                </div>
-
-                <label className="employment-retained">
-
-                  <input
-                    type="checkbox"
-                    name="retained"
-                    checked={form.retained}
-                    onChange={handleChange}
-                  />
-
-                  <span className="employment-checkbox">
-                    ✓
-                  </span>
-
-                  <span>
-                    Retained
-                  </span>
-
-                </label>
-
-              </div>
-
-              <div className="employment-form-actions">
-
-                <button
-                  type="submit"
-                  className="employment-save-button"
-                >
-                  <span>✓</span>
-
-                  {editingId
-                    ? "Update Employment"
-                    : "Save Employment"}
-                </button>
 
                 <button
                   type="button"
-                  className="employment-cancel-button"
+                  className="employment-close-button"
                   onClick={() => {
                     setShowForm(false);
                     resetForm();
                   }}
                 >
-                  <span>×</span>
-                  Cancel
+                  ×
                 </button>
 
               </div>
 
-            </form>
 
-          </div>
+              {/* =================================================
+                  FORM
+                  ================================================= */}
 
-        </div>,
-         document.body
+              <form
+                onSubmit={handleSaveEmployment}
+              >
 
-      )}
+                <div className="employment-form-grid">
+
+
+                  {/* =================================================
+                      TRAINEE
+                      ADMIN ONLY
+                      ================================================= */}
+
+                  {isAdmin && (
+
+                    <div className="employment-field">
+
+                      <label>
+
+                        <span>
+                          ♙
+                        </span>
+
+                        Trainee
+
+                      </label>
+
+
+                      <select
+                        name="trainee_id"
+                        value={form.trainee_id}
+                        onChange={handleChange}
+                        required
+                      >
+
+                        <option value="">
+                          Select Trainee
+                        </option>
+
+
+                        {trainees.map(
+                          (trainee) => {
+
+                            const traineeId =
+                              trainee?.trainee_id ||
+                              trainee?.id ||
+                              "";
+
+                            return (
+
+                              <option
+                                key={
+                                  traineeId ||
+                                  trainee?.email ||
+                                  trainee?.name
+                                }
+                                value={
+                                  traineeId
+                                }
+                              >
+
+                                {trainee?.name ||
+                                  "Unknown Trainee"}
+
+                                {" "}
+
+                                (
+                                {traineeId ||
+                                  "No ID"}
+                                )
+
+                              </option>
+
+                            );
+
+                          }
+                        )}
+
+                      </select>
+
+                    </div>
+
+                  )}
+
+
+                  {/* =================================================
+                      EMPLOYER
+                      ================================================= */}
+
+                  <div className="employment-field">
+
+                    <label>
+
+                      <span>
+                        ▣
+                      </span>
+
+                      Employer
+
+                    </label>
+
+
+                    <input
+                      name="employer"
+                      placeholder="Enter employer name"
+                      value={form.employer}
+                      onChange={handleChange}
+                      required
+                    />
+
+                  </div>
+
+
+                  {/* =================================================
+                      JOB ROLE
+                      ================================================= */}
+
+                  <div className="employment-field">
+
+                    <label>
+
+                      <span>
+                        ▤
+                      </span>
+
+                      Job Role
+
+                    </label>
+
+
+                    <input
+                      name="job_role"
+                      placeholder="Enter job role"
+                      value={form.job_role}
+                      onChange={handleChange}
+                      required
+                    />
+
+                  </div>
+
+
+                  {/* =================================================
+                      EMPLOYMENT TYPE
+                      ================================================= */}
+
+                  <div className="employment-field">
+
+                    <label>
+
+                      <span>
+                        ◈
+                      </span>
+
+                      Employment Type
+
+                    </label>
+
+
+                    <select
+                      name="employment_type"
+                      value={form.employment_type}
+                      onChange={handleChange}
+                      required
+                    >
+
+                      <option value="">
+                        Employment Type
+                      </option>
+
+                      <option value="Full-time">
+                        Full-time
+                      </option>
+
+                      <option value="Part-time">
+                        Part-time
+                      </option>
+
+                      <option value="Internship">
+                        Internship
+                      </option>
+
+                      <option value="Apprenticeship">
+                        Apprenticeship
+                      </option>
+
+                      <option value="Contract">
+                        Contract
+                      </option>
+
+                    </select>
+
+                  </div>
+
+
+                  {/* =================================================
+                      OUTCOME STATUS
+                      ================================================= */}
+
+                  <div className="employment-field">
+
+                    <label>
+
+                      <span>
+                        ✓
+                      </span>
+
+                      Outcome Status
+
+                    </label>
+
+
+                    <select
+                      name="outcome_status"
+                      value={
+                        form.outcome_status
+                      }
+                      onChange={
+                        handleChange
+                      }
+                      required
+                    >
+
+                      <option value="">
+                        Outcome Status
+                      </option>
+
+                      <option value="Employed">
+                        Employed
+                      </option>
+
+                      <option value="Self-Employed">
+                        Self-Employed
+                      </option>
+
+                      <option value="Unemployed">
+                        Unemployed
+                      </option>
+
+                      <option value="Job Seeking">
+                        Job Seeking
+                      </option>
+
+                      <option value="Higher Studies">
+                        Higher Studies
+                      </option>
+
+                      <option value="Not Looking for Work">
+                        Not Looking for Work
+                      </option>
+
+                      <option value="Training">
+                        Training
+                      </option>
+
+                    </select>
+
+                  </div>
+
+
+                  {/* =================================================
+                      JOINING DATE
+                      ================================================= */}
+
+                  <div className="employment-field">
+
+                    <label>
+
+                      <span>
+                        ◷
+                      </span>
+
+                      Joining Date
+
+                    </label>
+
+
+                    <input
+                      type="date"
+                      name="joining_date"
+                      value={
+                        form.joining_date
+                      }
+                      onChange={
+                        handleChange
+                      }
+                      required
+                    />
+
+                  </div>
+
+
+                  {/* =================================================
+                      STARTING SALARY
+                      ================================================= */}
+
+                  <div className="employment-field">
+
+                    <label>
+
+                      <span>
+                        ₹
+                      </span>
+
+                      Starting Salary
+
+                    </label>
+
+
+                    <input
+                      type="number"
+                      name="starting_salary"
+                      placeholder="Starting Salary"
+                      value={
+                        form.starting_salary
+                      }
+                      onChange={
+                        handleChange
+                      }
+                    />
+
+                  </div>
+
+
+                  {/* =================================================
+                      CURRENT SALARY
+                      ================================================= */}
+
+                  <div className="employment-field">
+
+                    <label>
+
+                      <span>
+                        ₹
+                      </span>
+
+                      Current Salary
+
+                    </label>
+
+
+                    <input
+                      type="number"
+                      name="current_salary"
+                      placeholder="Current Salary"
+                      value={
+                        form.current_salary
+                      }
+                      onChange={
+                        handleChange
+                      }
+                    />
+
+                  </div>
+
+
+                  {/* =================================================
+                      TRAINING RELEVANCE
+                      ================================================= */}
+
+                  <div className="employment-field">
+
+                    <label>
+
+                      <span>
+                        ★
+                      </span>
+
+                      Training Relevance
+
+                    </label>
+
+
+                    <select
+                      name="relevance"
+                      value={
+                        form.relevance
+                      }
+                      onChange={
+                        handleChange
+                      }
+                      required
+                    >
+
+                      <option value="">
+                        Select Relevance
+                      </option>
+
+                      <option value="High">
+                        High
+                      </option>
+
+                      <option value="Medium">
+                        Medium
+                      </option>
+
+                      <option value="Low">
+                        Low
+                      </option>
+
+                      <option value="Not Relevant">
+                        Not Relevant
+                      </option>
+
+                      <option value="Not Assessed">
+                        Not Assessed
+                      </option>
+
+                    </select>
+
+                  </div>
+
+
+                  {/* =================================================
+                      RETAINED
+                      ================================================= */}
+
+                  <label className="employment-retained">
+
+                    <input
+                      type="checkbox"
+                      name="retained"
+                      checked={
+                        form.retained
+                      }
+                      onChange={
+                        handleChange
+                      }
+                    />
+
+                    <span className="employment-checkbox">
+                      ✓
+                    </span>
+
+                    <span>
+                      Retained
+                    </span>
+
+                  </label>
+
+
+                </div>
+
+
+                {/* =================================================
+                    FORM ACTIONS
+                    ================================================= */}
+
+                <div className="employment-form-actions">
+
+                  <button
+                    type="submit"
+                    className="employment-save-button"
+                  >
+
+                    <span>
+                      ✓
+                    </span>
+
+                    {editingId
+                      ? "Update Employment"
+                      : "Save Employment"}
+
+                  </button>
+
+
+                  <button
+                    type="button"
+                    className="employment-cancel-button"
+                    onClick={() => {
+                      setShowForm(false);
+                      resetForm();
+                    }}
+                  >
+
+                    <span>
+                      ×
+                    </span>
+
+                    Cancel
+
+                  </button>
+
+                </div>
+
+              </form>
+
+            </div>
+
+          </div>,
+
+          document.body
+
+        )}
+
+
+      {/* =================================================
+          EMPLOYMENT RECORDS TABLE
+          ================================================= */}
 
       <Card
         title="Employment records"
-        subtitle="Records fetched from the employment database"
+        subtitle={
+          isAdmin
+            ? "Records fetched from the employment database"
+            : "Your employment records"
+        }
       >
 
         <div className="table-wrap employment-table-wrap">
@@ -6870,148 +8249,310 @@ function Employment({
             <thead>
 
               <tr>
-              
-                <th>Trainee ID</th>
-                <th>Trainee Name</th>
-                <th>Employer</th>
-                <th>Job Role</th>
-                <th>Employment Type</th>
-                <th>Starting Salary</th>
-                <th>Current Salary</th>
-                <th>Retained</th>
-                <th>Relevance</th>
-                <th>Action</th>
+
+                <th>
+                  Trainee ID
+                </th>
+
+                <th>
+                  Trainee Name
+                </th>
+
+                <th>
+                  Employer
+                </th>
+
+                <th>
+                  Job Role
+                </th>
+
+                <th>
+                  Employment Type
+                </th>
+
+                <th>
+                  Starting Salary
+                </th>
+
+                <th>
+                  Current Salary
+                </th>
+
+                <th>
+                  Retained
+                </th>
+
+                <th>
+                  Relevance
+                </th>
+
+                <th>
+                  Action
+                </th>
+
               </tr>
 
             </thead>
 
+
             <tbody>
 
-              {employment.map(item => (
+              {employment.map(
+                item => (
 
-               <tr key={item.employment_id}>
+                  <tr
+                    key={
+                      item.employment_id
+                    }
+                  >
 
-  <td>
-    <span className="employment-trainee-id">
-      ♙ {item.trainee_id || "—"}
-    </span>
-  </td>
+                    {/* Trainee ID */}
 
-  <td>
-    <span className="employment-trainee-name">
-      {(() => {
-        const trainee = trainees.find(
-          t =>
-            String(t?.trainee_id || t?.id || "").trim() ===
-            String(item?.trainee_id || "").trim()
-        );
+                    <td>
 
-        return trainee?.name || "—";
-      })()}
-    </span>
-  </td>
+                      <span className="employment-trainee-id">
 
-  <td>
-    <div className="employment-employer">
-      <span className="employment-company-icon">
-        ▣
-      </span>
-      <span>
-        {item.employer || "—"}
-      </span>
-    </div>
-  </td>
-                  <td>
-                    {item.job_role || "—"}
-                  </td>
+                        ♙{" "}
 
-                  <td>
-                    <span className="employment-type-badge">
-                      {item.employment_type || "—"}
-                    </span>
-                  </td>
+                        {item.trainee_id ||
+                          "—"}
 
-                  <td>
-                    {item.starting_salary
-                      ? `₹${Number(
-                          item.starting_salary
-                        ).toLocaleString("en-IN")}`
-                      : "—"}
-                  </td>
+                      </span>
 
-                  <td>
-                    {item.current_salary
-                      ? `₹${Number(
-                          item.current_salary
-                        ).toLocaleString("en-IN")}`
-                      : "—"}
-                  </td>
+                    </td>
 
-                  <td>
 
-                    <span
-                      className={
-                        item.retained
-                          ? "retained-badge yes"
-                          : "retained-badge no"
-                      }
-                    >
-                      {item.retained ? "✓ Yes" : "× No"}
-                    </span>
+                    {/* Trainee Name */}
 
-                  </td>
+                    <td>
 
-                  <td>
+                      <span className="employment-trainee-name">
 
-                    <span
-                      className={`relevance-badge ${
-                        item.relevance
-                          ? item.relevance
-                              .toLowerCase()
-                              .replace(/\s+/g, "-")
-                          : "not-assessed"
-                      }`}
-                    >
-                      {item.relevance || "Not Assessed"}
-                    </span>
+                        {(() => {
 
-                  </td>
+                          const trainee =
+                            trainees.find(
+                              t =>
+                                String(
+                                  t?.trainee_id ||
+                                  t?.id ||
+                                  ""
+                                ).trim() ===
+                                String(
+                                  item?.trainee_id ||
+                                  ""
+                                ).trim()
+                            );
 
-                  <td>
+                          return (
+                            trainee?.name ||
+                            (
+                              !isAdmin &&
+                              String(
+                                item?.trainee_id ||
+                                ""
+                              ).trim() ===
+                              String(
+                                currentUser?.trainee_id ||
+                                ""
+                              ).trim()
+                                ? currentUser?.name ||
+                                  "My Profile"
+                                : "—"
+                            )
+                          );
 
-                    {isAdmin && (
+                        })()}
+
+                      </span>
+
+                    </td>
+
+
+                    {/* Employer */}
+
+                    <td>
+
+                      <div className="employment-employer">
+
+                        <span className="employment-company-icon">
+                          ▣
+                        </span>
+
+                        <span>
+                          {item.employer ||
+                            "—"}
+                        </span>
+
+                      </div>
+
+                    </td>
+
+
+                    {/* Job Role */}
+
+                    <td>
+                      {item.job_role ||
+                        "—"}
+                    </td>
+
+
+                    {/* Employment Type */}
+
+                    <td>
+
+                      <span className="employment-type-badge">
+
+                        {item.employment_type ||
+                          "—"}
+
+                      </span>
+
+                    </td>
+
+
+                    {/* Starting Salary */}
+
+                    <td>
+
+                      {item.starting_salary
+                        ? `₹${Number(
+                            item.starting_salary
+                          ).toLocaleString(
+                            "en-IN"
+                          )}`
+                        : "—"}
+
+                    </td>
+
+
+                    {/* Current Salary */}
+
+                    <td>
+
+                      {item.current_salary
+                        ? `₹${Number(
+                            item.current_salary
+                          ).toLocaleString(
+                            "en-IN"
+                          )}`
+                        : "—"}
+
+                    </td>
+
+
+                    {/* Retained */}
+
+                    <td>
+
+                      <span
+                        className={
+                          item.retained
+                            ? "retained-badge yes"
+                            : "retained-badge no"
+                        }
+                      >
+
+                        {item.retained
+                          ? "✓ Yes"
+                          : "× No"}
+
+                      </span>
+
+                    </td>
+
+
+                    {/* Relevance */}
+
+                    <td>
+
+                      <span
+                        className={`relevance-badge ${
+                          item.relevance
+                            ? item.relevance
+                                .toLowerCase()
+                                .replace(
+                                  /\s+/g,
+                                  "-"
+                                )
+                            : "not-assessed"
+                        }`}
+                      >
+
+                        {item.relevance ||
+                          "Not Assessed"}
+
+                      </span>
+
+                    </td>
+
+
+                    {/* Actions */}
+
+                    <td>
 
                       <div className="employment-actions">
+
+                        {/* EDIT
+                            Admin → any record
+                            User → own record only
+                        */}
 
                         <button
                           className="employment-edit-button"
                           onClick={() =>
-                            handleEditEmployment(item)
+                            handleEditEmployment(
+                              item
+                            )
                           }
                         >
-                          <span>✎</span>
-                          <span>Edit</span>
+
+                          <span>
+                            ✎
+                          </span>
+
+                          <span>
+                            Edit
+                          </span>
+
                         </button>
 
-                        <button
-                          className="employment-delete-button"
-                          onClick={() =>
-                            handleDeleteEmployment(item)
-                          }
-                        >
-                          <span>🗑</span>
-                          <span>Delete</span>
-                        </button>
+
+                        {/* DELETE
+                            ADMIN ONLY
+                        */}
+
+                        {isAdmin && (
+
+                          <button
+                            className="employment-delete-button"
+                            onClick={() =>
+                              handleDeleteEmployment(
+                                item
+                              )
+                            }
+                          >
+
+                            <span>
+                              🗑
+                            </span>
+
+                            <span>
+                              Delete
+                            </span>
+
+                          </button>
+
+                        )}
 
                       </div>
 
-                    )}
+                    </td>
 
-                  </td>
+                  </tr>
 
-                </tr>
-
-              ))}
+                )
+              )}
 
             </tbody>
 

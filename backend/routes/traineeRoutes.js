@@ -455,16 +455,21 @@ router.put(
             // NORMAL TRAINEE → BASIC DETAILS ONLY
             // ==========================================
 
-            const {
-                name,
-                email,
-                date_of_birth,
-                location,
-                phone
-            } = req.body;
-
-
-            if (!name || !email) {
+const {
+    name,
+    email,
+    date_of_birth,
+    location,
+    phone,
+    course,
+    district,
+    provider,
+    gender,
+    age,
+    training_year,
+    status,
+    confidence
+} = req.body;            if (!name || !email) {
 
                 return res.status(400).json({
                     error:
@@ -476,23 +481,39 @@ router.put(
             const result = await pool.query(
                 `
                 UPDATE public.trainees
-                SET
-                    name = $1,
-                    email = $2,
-                    date_of_birth = $3,
-                    location = $4,
-                    phone = $5
-                WHERE trainee_id = $6
-                RETURNING *
+SET
+    name = $1,
+    email = $2,
+    date_of_birth = $3,
+    location = $4,
+    phone = $5,
+    course = $6,
+    district = $7,
+    provider = $8,
+    gender = $9,
+    age = $10,
+    training_year = $11,
+    status = $12,
+    confidence = $13
+WHERE trainee_id = $14
+RETURNING *
                 `,
                 [
-                    name.trim(),
-                    email.trim().toLowerCase(),
-                    date_of_birth || null,
-                    location?.trim() || null,
-                    phone?.trim() || null,
-                    traineeId
-                ]
+    name.trim(),
+    email.trim().toLowerCase(),
+    date_of_birth || null,
+    location?.trim() || null,
+    phone?.trim() || null,
+    course?.trim() || null,
+    district?.trim() || null,
+    provider?.trim() || null,
+    gender?.trim() || null,
+    age || null,
+    training_year || null,
+    status || null,
+    confidence ?? null,
+    traineeId
+]
             );
 
 
