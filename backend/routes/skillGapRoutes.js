@@ -121,7 +121,6 @@ function parseAIResponse(responseText) {
 
 // =====================================================
 // NORMALIZE AI SKILL GAPS
-// REMOVE DUPLICATE SKILLS
 // =====================================================
 
 function normalizeSkillGaps(data) {
@@ -212,7 +211,6 @@ function normalizeSkillGaps(data) {
 
 // =====================================================
 // NORMALIZE FUTURE RECOMMENDATIONS
-// REMOVE DUPLICATE SKILLS
 // =====================================================
 
 function normalizeRecommendations(data) {
@@ -645,6 +643,10 @@ router.delete(
 async function loadTraineeEvidence(
     traineeId
 ) {
+    // =====================================================
+    // TRAINEE PROFILE
+    // =====================================================
+
     const traineeResult =
         await pool.query(
             `
@@ -672,6 +674,11 @@ async function loadTraineeEvidence(
     const trainee =
         traineeResult.rows[0];
 
+
+    // =====================================================
+    // CURRENT SKILLS FROM trainee_skills
+    // =====================================================
+
     const currentSkillsResult =
         await pool.query(
             `
@@ -686,23 +693,164 @@ async function loadTraineeEvidence(
             `,
             [traineeId]
         );
-const trainingResult =
-    await pool.query(
-        `
-        SELECT
-            training_id,
-            skill,
-            course_provider,
-            start_date,
-            end_date,
-            assessment_score
-        FROM public.training
-        WHERE trainee_id = $1
-        ORDER BY
-            start_date DESC NULLS LAST
-        `,
-        [traineeId]
-    );
+
+
+    // =====================================================
+    // TRAINING HISTORY
+    //
+    // IMPORTANT:
+    // training.skill = learned skill
+    // trainees.course = educational course
+    // =====================================================
+
+    const trainingResult =
+        await pool.query(
+            `
+            SELECT
+                training_id,
+                skill,
+                course_provider,
+                start_date,
+                end_date,
+                assessment_score
+            FROM public.training
+            WHERE trainee_id = $1
+            ORDER BY
+                start_date DESC NULLS LAST
+            `,
+            [traineeId]
+        );
+
+
+    // =====================================================
+    // COMBINE CURRENT SKILLS
+    //
+    // Sources:
+    // 1. trainee_skills
+    // 2. training.skill
+    //
+    // Duplicate skills are removed.
+    // =====================================================
+
+    const skillMap = new Map();
+
+
+    // -----------------------------------------------------
+    // ADD SKILLS FROM trainee_skills
+    // -----------------------------------------------------
+
+    for (
+        const item of currentSkillsResult.rows
+    ) {
+        const skillName =
+            cleanText(
+                item.skill_name
+            );
+
+        if (!skillName) {
+            continue;
+        }
+
+        const normalizedSkill =
+            skillName
+                .toLowerCase()
+                .replace(/\s+/g, " ")
+                .trim();
+
+        skillMap.set(
+            normalizedSkill,
+            {
+                skill_name:
+                    skillName,
+
+                level:
+                    cleanText(
+                        item.level
+                    ) ||
+                    "Not Assessed"
+            }
+        );
+    }
+
+
+    // -----------------------------------------------------
+    // ADD SKILLS FROM TRAINING
+    // -----------------------------------------------------
+
+    for (
+        const item of trainingResult.rows
+    ) {
+        const skillName =
+            cleanText(
+                item.skill
+            );
+
+        if (!skillName) {
+            continue;
+        }
+
+        const normalizedSkill =
+            skillName
+                .toLowerCase()
+                .replace(/\s+/g, " ")
+                .trim();
+
+        // If the same skill already exists
+        // in trainee_skills, keep its level.
+        if (
+            skillMap.has(
+                normalizedSkill
+            )
+        ) {
+            continue;
+        }
+
+        const score =
+            Number(
+                item.assessment_score
+            );
+
+        let level =
+            "Not Assessed";
+
+        if (
+            Number.isFinite(score)
+        ) {
+            if (score >= 80) {
+                level = "Advanced";
+            } else if (score >= 60) {
+                level = "Intermediate";
+            } else {
+                level = "Basic";
+            }
+        }
+
+        skillMap.set(
+            normalizedSkill,
+            {
+                skill_name:
+                    skillName,
+
+                level
+            }
+        );
+    }
+
+
+    const currentSkills =
+        Array.from(
+            skillMap.values()
+        ).sort(
+            (a, b) =>
+                a.skill_name.localeCompare(
+                    b.skill_name
+                )
+        );
+
+
+    // =====================================================
+    // EMPLOYMENT HISTORY
+    // =====================================================
 
     const employmentResult =
         await pool.query(
@@ -718,6 +866,11 @@ const trainingResult =
             `,
             [traineeId]
         );
+
+
+    // =====================================================
+    // FOLLOW-UP HISTORY
+    // =====================================================
 
     const followupResult =
         await pool.query(
@@ -737,6 +890,11 @@ const trainingResult =
             [traineeId]
         );
 
+
+    // =====================================================
+    // OUTCOME EVIDENCE
+    // =====================================================
+
     const evidenceResult =
         await pool.query(
             `
@@ -753,6 +911,11 @@ const trainingResult =
             `,
             [traineeId]
         );
+
+
+    // =====================================================
+    // EXISTING SKILL GAPS
+    // =====================================================
 
     const skillGapResult =
         await pool.query(
@@ -771,6 +934,11 @@ const trainingResult =
             [traineeId]
         );
 
+
+    // =====================================================
+    // MARKET SKILL DATA
+    // =====================================================
+
     const marketResult =
         await pool.query(
             `
@@ -788,11 +956,15 @@ const trainingResult =
             `
         );
 
+
+    // =====================================================
+    // COMPLETE EVIDENCE
+    // =====================================================
+
     return {
         trainee,
 
-        currentSkills:
-            currentSkillsResult.rows,
+        currentSkills,
 
         trainingHistory:
             trainingResult.rows,
@@ -818,18 +990,27 @@ const trainingResult =
 // =====================================================
 // GROQ - FUTURE SKILL RECOMMENDATION
 // =====================================================
+
 router.post(
     "/recommendations/:traineeId",
     async (req, res) => {
         try {
-            const { traineeId } = req.params;
+            const {
+                traineeId
+            } = req.params;
 
-            // -------------------------------------------------
+
+            // =================================================
             // RBAC
-            // -------------------------------------------------
+            // =================================================
 
-            if (req.user.role !== "admin") {
-                if (!req.user.trainee_id) {
+            if (
+                req.user.role !==
+                "admin"
+            ) {
+                if (
+                    !req.user.trainee_id
+                ) {
                     return res.status(403).json({
                         error:
                             "No trainee is assigned to this account"
@@ -847,20 +1028,24 @@ router.post(
                 }
             }
 
-            // -------------------------------------------------
-            // GROQ API KEY CHECK
-            // -------------------------------------------------
 
-            if (!process.env.GROQ_API_KEY) {
+            // =================================================
+            // GROQ API KEY
+            // =================================================
+
+            if (
+                !process.env.GROQ_API_KEY
+            ) {
                 return res.status(500).json({
                     error:
                         "Groq API key is not configured on the backend"
                 });
             }
 
-            // -------------------------------------------------
-            // LOAD COMPLETE TRAINEE EVIDENCE
-            // -------------------------------------------------
+
+            // =================================================
+            // LOAD EVIDENCE
+            // =================================================
 
             const evidence =
                 await loadTraineeEvidence(
@@ -874,11 +1059,10 @@ router.post(
                 });
             }
 
-            // -------------------------------------------------
-            // BUILD TRAINEE-SPECIFIC EVIDENCE SUMMARY
-            // This makes the AI focus on the individual
-            // instead of only the common market data.
-            // -------------------------------------------------
+
+            // =================================================
+            // TRAINEE-SPECIFIC EVIDENCE
+            // =================================================
 
             const traineeSpecificEvidence = {
                 trainee: {
@@ -930,11 +1114,10 @@ router.post(
                     evidence.existingSkillGaps
             };
 
-            // -------------------------------------------------
+
+            // =================================================
             // EXISTING GAP SKILLS
-            // These are explicitly blocked from being copied
-            // as future recommendations.
-            // -------------------------------------------------
+            // =================================================
 
             const existingGapSkills =
                 new Set(
@@ -954,9 +1137,10 @@ router.post(
                         .filter(Boolean)
                 );
 
-            // -------------------------------------------------
+
+            // =================================================
             // AI PROMPT
-            // -------------------------------------------------
+            // =================================================
 
             const prompt = `
 You are the AI intelligence engine of SkillTrack.
@@ -968,6 +1152,13 @@ This is NOT a generic career-advice task.
 
 You must analyze the individual trainee's actual evidence and determine
 what capability they may reasonably need to learn NEXT.
+
+IMPORTANT COURSE/SKILL DISTINCTION:
+
+- trainee.course is the trainee's educational course or qualification.
+- trainingHistory.skill is a skill learned during training.
+- currentSkills contains existing trainee skills and learned training skills.
+- Do NOT confuse the educational course with a learned skill.
 
 ====================================================
 CORE OBJECTIVE
@@ -1041,20 +1232,6 @@ NEVER simply copy an existing skill gap into the future recommendations.
 If the trainee already has an existing gap for a skill, that exact skill
 must NOT be recommended as a future skill.
 
-For example:
-
-Existing gap:
-Node.js
-
-Do NOT return:
-
-Future skill:
-Node.js
-
-Instead, only recommend a related advanced capability if there is
-independent evidence showing that the trainee actually needs that
-advanced capability.
-
 A current skill gap and a future learning need are NOT automatically
 the same thing.
 
@@ -1080,23 +1257,6 @@ such as:
 - a training history item
 
 Generic reasons are NOT acceptable.
-
-Bad reason:
-
-"This skill is highly demanded in the market."
-
-Bad reason:
-
-"This skill is useful for developers."
-
-Bad reason:
-
-"This is an important modern technology."
-
-Good reason:
-
-"The trainee is currently working as X and the follow-up response
-indicates Y capability is being used or is missing."
 
 Only use facts that actually exist in the supplied evidence.
 
@@ -1133,11 +1293,6 @@ Never select a skill only because it has:
 - a popular technology name
 
 The trainee-specific evidence must come first.
-
-For example:
-
-If AWS has demand 95 but there is no trainee-specific evidence
-connecting AWS to this trainee, DO NOT recommend AWS.
 
 ====================================================
 FUTURE SKILL DECISION PROCESS
@@ -1198,32 +1353,6 @@ If evidence is insufficient, return:
 Do NOT manufacture recommendations to fill the list.
 
 ====================================================
-IMPORTANT DIFFERENT-TRAINEE RULE
-====================================================
-
-Do not intentionally make recommendations different merely for the sake
-of being different.
-
-However, when trainees have different evidence, their recommendations
-should reflect those differences.
-
-For example:
-
-Trainee A:
-- different course
-- different current skills
-- different employment role
-- different follow-up evidence
-
-Trainee B:
-- different course
-- different current skills
-- different employment role
-- different follow-up evidence
-
-The recommendation analysis should reflect those differences.
-
-====================================================
 SCORE
 ====================================================
 
@@ -1231,8 +1360,7 @@ Score must be an evidence-based confidence/relevance score from 0 to 100.
 
 Do NOT simply copy market demand into score.
 
-The trainee-specific evidence must have greater influence than market
-demand.
+The trainee-specific evidence must have greater influence than market demand.
 
 Priority must be:
 
@@ -1336,9 +1464,10 @@ ${JSON.stringify(
 )}
 `;
 
-            // -------------------------------------------------
+
+            // =================================================
             // CALL GROQ
-            // -------------------------------------------------
+            // =================================================
 
             const responseText =
                 await generateGroqContent(
@@ -1350,9 +1479,10 @@ ${JSON.stringify(
                     responseText
                 );
 
-            // -------------------------------------------------
-            // NORMALIZE AI RESULT
-            // -------------------------------------------------
+
+            // =================================================
+            // NORMALIZE
+            // =================================================
 
             let recommendations =
                 normalizeRecommendations(
@@ -1371,11 +1501,10 @@ ${JSON.stringify(
                 ) ||
                 "Insufficient evidence to determine overall training relevance.";
 
-            // -------------------------------------------------
-            // BACKEND VALIDATION
-            // Never allow exact existing skill gaps
-            // to become future recommendations.
-            // -------------------------------------------------
+
+            // =================================================
+            // BLOCK EXISTING GAP SKILLS
+            // =================================================
 
             recommendations =
                 recommendations.filter(
@@ -1395,9 +1524,10 @@ ${JSON.stringify(
                     }
                 );
 
-            // -------------------------------------------------
-            // REMOVE GENERIC / WEAK REASONS
-            // -------------------------------------------------
+
+            // =================================================
+            // REMOVE GENERIC REASONS
+            // =================================================
 
             const genericReasonPatterns = [
                 "high market demand",
@@ -1437,9 +1567,10 @@ ${JSON.stringify(
                     }
                 );
 
-            // -------------------------------------------------
-            // LIMIT TO MAXIMUM 6
-            // -------------------------------------------------
+
+            // =================================================
+            // MAXIMUM 6
+            // =================================================
 
             recommendations =
                 recommendations
@@ -1450,9 +1581,10 @@ ${JSON.stringify(
                     )
                     .slice(0, 6);
 
-            // -------------------------------------------------
+
+            // =================================================
             // SAVE FRESH AI RESULT
-            // -------------------------------------------------
+            // =================================================
 
             const client =
                 await pool.connect();
@@ -1520,29 +1652,19 @@ ${JSON.stringify(
                         `,
                         [
                             traineeId,
-
                             recommendation.skill,
-
                             recommendation.priority,
-
                             recommendation.score,
-
                             recommendation.reason,
-
                             recommendation.learningPath,
-
                             recommendation.marketDemand,
-
                             recommendation.growthRate,
-
                             relevance
                                 ? relevance.usage
                                 : "Not Assessed",
-
                             relevance
                                 ? relevance.reason
                                 : "Insufficient evidence to determine usage.",
-
                             overallTrainingRelevance
                         ]
                     );
@@ -1563,9 +1685,10 @@ ${JSON.stringify(
                 client.release();
             }
 
-            // -------------------------------------------------
+
+            // =================================================
             // RETURN FRESH RESULT
-            // -------------------------------------------------
+            // =================================================
 
             return res.json({
                 trainee: {
@@ -1673,9 +1796,10 @@ router.post(
                 traineeId
             } = req.params;
 
-            // -------------------------------------------------
-            // CHECK IF AI SKILL GAP ALREADY EXISTS
-            // -------------------------------------------------
+
+            // =================================================
+            // CHECK EXISTING SKILL GAPS
+            // =================================================
 
             const existingResult =
                 await pool.query(
@@ -1741,9 +1865,10 @@ router.post(
                 });
             }
 
-            // -------------------------------------------------
-            // GROQ API KEY CHECK
-            // -------------------------------------------------
+
+            // =================================================
+            // GROQ API KEY
+            // =================================================
 
             if (
                 !process.env.GROQ_API_KEY
@@ -1754,9 +1879,10 @@ router.post(
                 });
             }
 
-            // -------------------------------------------------
-            // LOAD TRAINEE EVIDENCE
-            // -------------------------------------------------
+
+            // =================================================
+            // LOAD EVIDENCE
+            // =================================================
 
             const evidence =
                 await loadTraineeEvidence(
@@ -1770,9 +1896,10 @@ router.post(
                 });
             }
 
-            // -------------------------------------------------
+
+            // =================================================
             // AI PROMPT
-            // -------------------------------------------------
+            // =================================================
 
             const prompt = `
 You are the AI skill-gap intelligence engine of SkillTrack.
@@ -1780,6 +1907,13 @@ You are the AI skill-gap intelligence engine of SkillTrack.
 Your task is to identify the CURRENT skill gaps of this specific trainee.
 
 A skill gap means a capability that the trainee appears to need but does not currently demonstrate at the required level, based on the evidence provided.
+
+IMPORTANT COURSE/SKILL DISTINCTION:
+
+- trainee.course is the educational course or qualification.
+- trainingHistory.skill is a skill learned during training.
+- currentSkills contains the trainee's existing skills and learned training skills.
+- Do NOT treat the educational course itself as a technical skill.
 
 IMPORTANT:
 
@@ -1858,6 +1992,11 @@ ${JSON.stringify(
 )}
 `;
 
+
+            // =================================================
+            // CALL GROQ
+            // =================================================
+
             const responseText =
                 await generateGroqContent(
                     prompt
@@ -1867,6 +2006,11 @@ ${JSON.stringify(
                 parseAIResponse(
                     responseText
                 );
+
+
+            // =================================================
+            // NORMALIZE
+            // =================================================
 
             const skillGaps =
                 normalizeSkillGaps(
@@ -1878,9 +2022,10 @@ ${JSON.stringify(
                     aiData
                 );
 
-            // -------------------------------------------------
+
+            // =================================================
             // SAVE AI RESULT
-            // -------------------------------------------------
+            // =================================================
 
             const client =
                 await pool.connect();
@@ -1933,9 +2078,10 @@ ${JSON.stringify(
                 client.release();
             }
 
-            // -------------------------------------------------
+
+            // =================================================
             // RETURN SAVED RESULT
-            // -------------------------------------------------
+            // =================================================
 
             const savedResult =
                 await pool.query(
@@ -1949,6 +2095,7 @@ ${JSON.stringify(
                     `,
                     [traineeId]
                 );
+
 
             return res.json({
                 message:
@@ -1993,6 +2140,7 @@ ${JSON.stringify(
 
                 existing: false
             });
+
         } catch (error) {
             console.error(
                 "AI Skill Gap Generation Error:",
