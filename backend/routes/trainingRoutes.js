@@ -4,53 +4,71 @@ const router = express.Router();
 const pool = require("../db");
 const requireAdmin = require("../middleware/requireAdmin");
 
-// Get all training records
-// Get training records
+
+// =====================================================
+// GET TRAINING RECORDS
+// ADMIN → ALL
+// NORMAL USER → OWN ONLY
+// =====================================================
+
 router.get("/", async (req, res) => {
     try {
 
-        // ADMIN → sabhi training records
+        // =================================================
+        // ADMIN → SABHI TRAINING RECORDS
+        // =================================================
+
         if (req.user.role === "admin") {
+
             const result = await pool.query(`
-                SELECT 
-                    training.training_id, 
-                    training.trainee_id, 
-                    trainees.name AS trainee_name, 
-                    training.course, 
-                    training.course_provider, 
-                    training.start_date, 
-                    training.end_date, 
-                    training.assessment_score 
-                FROM public.training 
-                LEFT JOIN public.trainees 
-                    ON training.trainee_id = trainees.trainee_id 
+                SELECT
+                    training.training_id,
+                    training.trainee_id,
+                    trainees.name AS trainee_name,
+                    training.course,
+                    training.course_provider,
+                    training.start_date,
+                    training.end_date,
+                    training.assessment_score
+                FROM public.training
+                LEFT JOIN public.trainees
+                    ON training.trainee_id = trainees.trainee_id
                 ORDER BY training.training_id DESC
             `);
 
             return res.json(result.rows);
         }
 
-        // NORMAL USER → trainee profile linked hona chahiye
+
+        // =================================================
+        // NORMAL USER → TRAINEE PROFILE REQUIRED
+        // =================================================
+
         if (!req.user.trainee_id) {
+
             return res.status(403).json({
                 error: "No trainee profile linked to this account"
             });
         }
 
-        // NORMAL USER → sirf apna training data
+
+        // =================================================
+        // NORMAL USER → SIRF APNI TRAINING
+        // =================================================
+
         const result = await pool.query(
             `
-            SELECT 
-                training.training_id, 
-                training.trainee_id, 
-                trainees.name AS trainee_name, 
-                training.course, 
-                training.course_provider, 
-                training.start_date, 
-                training.end_date, 
-                training.assessment_score 
-            FROM public.training 
-            LEFT JOIN public.trainees 
+            SELECT
+                training.training_id,
+                training.trainee_id,
+                trainees.name AS trainee_name,
+                training.course,
+                training.course_provider,
+                training.start_date,
+                training.end_date,
+                training.assessment_score
+            FROM public.training
+            LEFT JOIN public.trainees
                 ON training.trainee_id = trainees.trainee_id
             WHERE training.trainee_id = $1
             ORDER BY training.training_id DESC
@@ -61,18 +79,27 @@ router.get("/", async (req, res) => {
         return res.json(result.rows);
 
     } catch (error) {
-        console.error("Error fetching training:", error);
 
-        res.status(500).json({
+        console.error(
+            "Error fetching training:",
+            error
+        );
+
+        return res.status(500).json({
             error: "Failed to fetch training records"
         });
     }
 });
 
 
-// Add training record
-router.post("/", requireAdmin, async (req, res) => {
+// =====================================================
+// POST - ADD TRAINING
+// ADMIN + NORMAL USER (OWN TRAINING)
+// =====================================================
+
+router.post("/", async (req, res) => {
     try {
+
         const {
             trainee_id,
             course,
@@ -81,6 +108,64 @@ router.post("/", requireAdmin, async (req, res) => {
             end_date,
             assessment_score
         } = req.body;
+
+
+        const isAdmin =
+            req.user.role === "admin";
+
+
+        // =================================================
+        // NORMAL USER → PROFILE REQUIRED
+        // =================================================
+
+        if (
+            !isAdmin &&
+            !req.user.trainee_id
+        ) {
+
+            return res.status(403).json({
+                error:
+                    "No trainee profile linked to this account"
+            });
+        }
+
+
+        // =================================================
+        // TRAINEE ID
+        //
+        // ADMIN → body se
+        // USER  → token se
+        // =================================================
+
+        const finalTraineeId =
+            isAdmin
+                ? trainee_id
+                : req.user.trainee_id;
+
+
+        // =================================================
+        // BASIC VALIDATION
+        // =================================================
+
+        if (!finalTraineeId) {
+
+            return res.status(400).json({
+                error: "Trainee ID is required"
+            });
+        }
+
+
+        if (!course || !course.trim()) {
+
+            return res.status(400).json({
+                error: "Course is required"
+            });
+        }
+
+
+        // =================================================
+        // INSERT
+        // =================================================
 
         const result = await pool.query(
             `
@@ -93,67 +178,53 @@ router.post("/", requireAdmin, async (req, res) => {
                 end_date,
                 assessment_score
             )
-            VALUES ($1, $2, $3, $4, $5, $6)
+            VALUES
+            ($1, $2, $3, $4, $5, $6)
             RETURNING *
             `,
             [
-                trainee_id,
-                course,
-                course_provider,
-                start_date,
-                end_date,
-                assessment_score
+                finalTraineeId,
+                course.trim(),
+                course_provider?.trim() || null,
+                start_date || null,
+                end_date || null,
+                assessment_score ?? null
             ]
         );
 
-        res.status(201).json(result.rows[0]);
+
+        return res.status(201).json({
+            message:
+                "Training record added successfully",
+            training:
+                result.rows[0]
+        });
 
     } catch (error) {
-        console.error("Error adding training:", error);
 
-        res.status(500).json({
-            error: "Failed to add training record"
-        });
-    }
-});
-
-
-// Delete training record
-router.delete("/:id", requireAdmin, async (req, res) => {
-    try {
-        const result = await pool.query(
-            `
-            DELETE FROM public.training
-            WHERE training_id = $1
-            RETURNING *
-            `,
-            [req.params.id]
+        console.error(
+            "Error adding training:",
+            error
         );
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({
-                error: "Training record not found"
-            });
-        }
-
-        res.json({
-            message: "Training record deleted successfully",
-            training: result.rows[0]
-        });
-
-    } catch (error) {
-        console.error("Error deleting training:", error);
-
-        res.status(500).json({
-            error: "Failed to delete training record"
+        return res.status(500).json({
+            error:
+                "Failed to add training record",
+            details:
+                error.message
         });
     }
 });
 
 
-// Update training record
-router.put("/:id", requireAdmin, async (req, res) => {
+// =====================================================
+// PUT - UPDATE TRAINING
+// ADMIN + NORMAL USER (OWN TRAINING)
+// =====================================================
+
+router.put("/:id", async (req, res) => {
     try {
+
         const {
             trainee_id,
             course,
@@ -163,48 +234,223 @@ router.put("/:id", requireAdmin, async (req, res) => {
             assessment_score
         } = req.body;
 
+
+        const trainingId =
+            Number(req.params.id);
+
+
+        // =================================================
+        // ID VALIDATION
+        // =================================================
+
+        if (!Number.isInteger(trainingId)) {
+
+            return res.status(400).json({
+                error:
+                    "Invalid training ID"
+            });
+        }
+
+
+        const isAdmin =
+            req.user.role === "admin";
+
+
+        // =================================================
+        // ADMIN → FULL UPDATE
+        // =================================================
+
+        if (isAdmin) {
+
+            const result = await pool.query(
+                `
+                UPDATE public.training
+                SET
+                    trainee_id = $1,
+                    course = $2,
+                    course_provider = $3,
+                    start_date = $4,
+                    end_date = $5,
+                    assessment_score = $6
+                WHERE training_id = $7
+                RETURNING *
+                `,
+                [
+                    trainee_id,
+                    course?.trim(),
+                    course_provider?.trim() || null,
+                    start_date || null,
+                    end_date || null,
+                    assessment_score ?? null,
+                    trainingId
+                ]
+            );
+
+
+            if (result.rows.length === 0) {
+
+                return res.status(404).json({
+                    error:
+                        "Training record not found"
+                });
+            }
+
+
+            return res.json({
+                message:
+                    "Training record updated successfully",
+                training:
+                    result.rows[0]
+            });
+        }
+
+
+        // =================================================
+        // NORMAL USER → PROFILE REQUIRED
+        // =================================================
+
+        if (!req.user.trainee_id) {
+
+            return res.status(403).json({
+                error:
+                    "No trainee profile linked to this account"
+            });
+        }
+
+
+        // =================================================
+        // NORMAL USER → ONLY OWN RECORD
+        //
+        // trainee_id body se update nahi hoga.
+        // Ownership database level par check hogi.
+        // =================================================
+
         const result = await pool.query(
             `
             UPDATE public.training
             SET
-                trainee_id = $1,
-                course = $2,
-                course_provider = $3,
-                start_date = $4,
-                end_date = $5,
-                assessment_score = $6
-            WHERE training_id = $7
+                course = $1,
+                course_provider = $2,
+                start_date = $3,
+                end_date = $4,
+                assessment_score = $5
+            WHERE training_id = $6
+              AND trainee_id = $7
             RETURNING *
             `,
             [
-                trainee_id,
-                course,
-                course_provider,
-                start_date,
-                end_date,
-                assessment_score,
-                req.params.id
+                course?.trim(),
+                course_provider?.trim() || null,
+                start_date || null,
+                end_date || null,
+                assessment_score ?? null,
+                trainingId,
+                req.user.trainee_id
             ]
         );
 
+
+        // =================================================
+        // RECORD NOT FOUND / OTHER TRAINEE
+        // =================================================
+
         if (result.rows.length === 0) {
-            return res.status(404).json({
-                error: "Training record not found"
+
+            return res.status(403).json({
+                error:
+                    "You can only update your own training record"
             });
         }
 
-        res.json({
-            message: "Training record updated successfully",
-            training: result.rows[0]
+
+        return res.json({
+            message:
+                "Training record updated successfully",
+            training:
+                result.rows[0]
         });
 
     } catch (error) {
-        console.error("Error updating training:", error);
 
-        res.status(500).json({
-            error: "Failed to update training record"
+        console.error(
+            "Error updating training:",
+            error
+        );
+
+        return res.status(500).json({
+            error:
+                "Failed to update training record",
+            details:
+                error.message
         });
     }
 });
+
+
+// =====================================================
+// DELETE - ADMIN ONLY
+// =====================================================
+
+router.delete(
+    "/:id",
+    requireAdmin,
+    async (req, res) => {
+
+        try {
+
+            const trainingId =
+                Number(req.params.id);
+
+
+            if (!Number.isInteger(trainingId)) {
+
+                return res.status(400).json({
+                    error:
+                        "Invalid training ID"
+                });
+            }
+
+
+            const result = await pool.query(
+                `
+                DELETE FROM public.training
+                WHERE training_id = $1
+                RETURNING *
+                `,
+                [trainingId]
+            );
+
+
+            if (result.rows.length === 0) {
+
+                return res.status(404).json({
+                    error:
+                        "Training record not found"
+                });
+            }
+
+
+            return res.json({
+                message:
+                    "Training record deleted successfully",
+                training:
+                    result.rows[0]
+            });
+
+        } catch (error) {
+
+            console.error(
+                "Error deleting training:",
+                error
+            );
+
+            return res.status(500).json({
+                error:
+                    "Failed to delete training record"
+            });
+        }
+    }
+);
+
 
 module.exports = router;
