@@ -686,24 +686,23 @@ async function loadTraineeEvidence(
             `,
             [traineeId]
         );
-
-    const trainingResult =
-        await pool.query(
-            `
-            SELECT
-                training_id,
-                course,
-                course_provider,
-                start_date,
-                end_date,
-                assessment_score
-            FROM public.training
-            WHERE trainee_id = $1
-            ORDER BY
-                start_date DESC NULLS LAST
-            `,
-            [traineeId]
-        );
+const trainingResult =
+    await pool.query(
+        `
+        SELECT
+            training_id,
+            skill,
+            course_provider,
+            start_date,
+            end_date,
+            assessment_score
+        FROM public.training
+        WHERE trainee_id = $1
+        ORDER BY
+            start_date DESC NULLS LAST
+        `,
+        [traineeId]
+    );
 
     const employmentResult =
         await pool.query(
