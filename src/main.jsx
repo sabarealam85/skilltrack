@@ -5598,15 +5598,15 @@ function Training({ trainees, training, setTraining, currentUser }) {
   const [editingId, setEditingId] =
     useState(null);
 
-  const [form, setForm] = useState({
-    trainee_id: "",
-    skill: "",
-    course_provider: "",
-    start_date: "",
-    end_date: "",
-    assessment_score: ""
-  });
-
+ const [form, setForm] = useState({
+  trainee_id: "",
+  skill: "",
+  course_provider: "",
+  start_date: "",
+  end_date: "",
+  assessment_score: "",
+  certification_status: "Not Completed"
+});
 
   // =====================================================
   // RESET FORM
@@ -5620,7 +5620,9 @@ function Training({ trainees, training, setTraining, currentUser }) {
       course_provider: "",
       start_date: "",
       end_date: "",
-      assessment_score: ""
+      assessment_score: "",
+        certification_status: "Not Completed"
+
     });
 
     setEditingId(null);
@@ -5651,14 +5653,15 @@ function Training({ trainees, training, setTraining, currentUser }) {
     if (!isAdmin) {
 
       setForm({
-        trainee_id:
-          currentUser?.trainee_id || "",
-        skill: "",
-        course_provider: "",
-        start_date: "",
-        end_date: "",
-        assessment_score: ""
-      });
+  trainee_id:
+    currentUser?.trainee_id || "",
+  skill: "",
+  course_provider: "",
+  start_date: "",
+  end_date: "",
+  assessment_score: "",
+  certification_status: "Not Completed"
+});
     }
 
     setShowForm(true);
@@ -5698,8 +5701,9 @@ function Training({ trainees, training, setTraining, currentUser }) {
       trainee_id:
         itemTraineeId,
 
-      skill:
-        item?.skill || "",
+skill: item?.skill || "",
+certification_status:
+  item?.certification_status || "Not Completed",
 
       course_provider:
         item?.course_provider || "",
@@ -5758,17 +5762,12 @@ function Training({ trainees, training, setTraining, currentUser }) {
       // =================================================
       // SKILL VALIDATION
       // =================================================
-
-      if (!form.skill.trim()) {
-
-        alert(
-          "Please enter skill name."
-        );
-
-        return;
-      }
-
-
+if (!form.skill.trim()) {
+  alert(
+    "Please enter skill name."
+  );
+  return;
+}
       // =================================================
       // SAVE BODY
       // =================================================
@@ -5793,9 +5792,11 @@ function Training({ trainees, training, setTraining, currentUser }) {
         assessment_score:
           form.assessment_score === ""
             ? null
-            : Number(form.assessment_score)
+            : Number(form.assessment_score),
+            certification_status: form.certification_status
 
       };
+      console.log("TRAINING BODY:", body);
 
 
       // =================================================
@@ -6525,6 +6526,22 @@ function Training({ trainees, training, setTraining, currentUser }) {
 
 
                 </div>
+                <div className="training-field">
+  <label>Certification Status</label>
+
+  <select
+    value={form.certification_status}
+    onChange={(e) =>
+      setForm({
+        ...form,
+        certification_status: e.target.value
+      })
+    }
+  >
+    <option value="Not Completed">Not Completed</option>
+    <option value="Completed">Completed</option>
+  </select>
+</div>
 
 
                 {/* =================================================
@@ -6792,7 +6809,7 @@ function Training({ trainees, training, setTraining, currentUser }) {
                 <th>
                   Assessment Score
                 </th>
-
+                <th>Certification Status</th>
                 <th>
                   Action
                 </th>
@@ -7006,6 +7023,21 @@ function Training({ trainees, training, setTraining, currentUser }) {
                         </span>
 
                       </td>
+                      <td>
+  <span
+    className={`certification-status-badge ${
+      item?.certification_status === "Completed"
+        ? "certification-completed"
+        : "certification-not-completed"
+    }`}
+  >
+    <span className="certification-status-icon">
+      {item?.certification_status === "Completed" ? "✓" : "○"}
+    </span>
+
+    {item?.certification_status || "Not Completed"}
+  </span>
+</td>
 
 
                       {/* ACTION */}

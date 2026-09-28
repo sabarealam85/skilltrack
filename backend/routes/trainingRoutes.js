@@ -29,7 +29,8 @@ router.get("/", async (req, res) => {
                     training.course_provider,
                     training.start_date,
                     training.end_date,
-                    training.assessment_score
+                    training.assessment_score,
+                    training.certification_status
                 FROM public.training
                 LEFT JOIN public.trainees
                     ON training.trainee_id = trainees.trainee_id
@@ -47,7 +48,8 @@ router.get("/", async (req, res) => {
         if (!req.user.trainee_id) {
 
             return res.status(403).json({
-                error: "No trainee profile linked to this account"
+                error:
+                    "No trainee profile linked to this account"
             });
         }
 
@@ -66,7 +68,8 @@ router.get("/", async (req, res) => {
                 training.course_provider,
                 training.start_date,
                 training.end_date,
-                training.assessment_score
+                training.assessment_score,
+                training.certification_status
             FROM public.training
             LEFT JOIN public.trainees
                 ON training.trainee_id = trainees.trainee_id
@@ -86,7 +89,8 @@ router.get("/", async (req, res) => {
         );
 
         return res.status(500).json({
-            error: "Failed to fetch training records"
+            error:
+                "Failed to fetch training records"
         });
     }
 });
@@ -106,7 +110,8 @@ router.post("/", async (req, res) => {
             course_provider,
             start_date,
             end_date,
-            assessment_score
+            assessment_score,
+            certification_status
         } = req.body;
 
 
@@ -132,9 +137,8 @@ router.post("/", async (req, res) => {
 
         // =================================================
         // TRAINEE ID
-        //
-        // ADMIN → body se
-        // USER  → token se
+        // ADMIN → BODY SE
+        // USER  → TOKEN SE
         // =================================================
 
         const finalTraineeId =
@@ -150,7 +154,8 @@ router.post("/", async (req, res) => {
         if (!finalTraineeId) {
 
             return res.status(400).json({
-                error: "Trainee ID is required"
+                error:
+                    "Trainee ID is required"
             });
         }
 
@@ -158,9 +163,20 @@ router.post("/", async (req, res) => {
         if (!skill || !skill.trim()) {
 
             return res.status(400).json({
-                error: "Skill is required"
+                error:
+                    "Skill is required"
             });
         }
+
+
+        // =================================================
+        // CERTIFICATION STATUS VALIDATION
+        // =================================================
+
+        const finalCertificationStatus =
+            certification_status === "Completed"
+                ? "Completed"
+                : "Not Completed";
 
 
         // =================================================
@@ -176,10 +192,11 @@ router.post("/", async (req, res) => {
                 course_provider,
                 start_date,
                 end_date,
-                assessment_score
+                assessment_score,
+                certification_status
             )
             VALUES
-            ($1, $2, $3, $4, $5, $6)
+            ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *
             `,
             [
@@ -188,25 +205,40 @@ router.post("/", async (req, res) => {
                 course_provider?.trim() || null,
                 start_date || null,
                 end_date || null,
-                assessment_score ?? null
+                assessment_score ?? null,
+                finalCertificationStatus
             ]
         );
 
 
         // =================================================
-        // IMPORTANT
-        //
-        // Training Skill ko Trainee Course me sync
-        // NAHI kiya jayega.
-        //
-        // Trainee Course aur Training Skill
-        // completely separate rahenge.
+        // SYNC COURSE + PROVIDER TO TRAINEE PROFILE
         // =================================================
+        // NOTE:
+        // Training.skill is separate from trainees.course.
+        // We are NOT changing trainees.course here.
+        // Provider is synced because existing project
+        // already uses this behaviour.
+        // =================================================
+
+        await pool.query(
+            `
+            UPDATE public.trainees
+            SET
+                provider = $1
+            WHERE trainee_id = $2
+            `,
+            [
+                course_provider?.trim() || null,
+                finalTraineeId
+            ]
+        );
 
 
         return res.status(201).json({
             message:
                 "Training record added successfully",
+
             training:
                 result.rows[0]
         });
@@ -221,6 +253,7 @@ router.post("/", async (req, res) => {
         return res.status(500).json({
             error:
                 "Failed to add training record",
+
             details:
                 error.message
         });
@@ -242,7 +275,8 @@ router.put("/:id", async (req, res) => {
             course_provider,
             start_date,
             end_date,
-            assessment_score
+            assessment_score,
+            certification_status
         } = req.body;
 
 
@@ -265,6 +299,16 @@ router.put("/:id", async (req, res) => {
 
         const isAdmin =
             req.user.role === "admin";
+
+
+        // =================================================
+        // CERTIFICATION STATUS
+        // =================================================
+
+        const finalCertificationStatus =
+            certification_status === "Completed"
+                ? "Completed"
+                : "Not Completed";
 
 
         // =================================================
@@ -300,8 +344,9 @@ router.put("/:id", async (req, res) => {
                     course_provider = $3,
                     start_date = $4,
                     end_date = $5,
-                    assessment_score = $6
-                WHERE training_id = $7
+                    assessment_score = $6,
+                    certification_status = $7
+                WHERE training_id = $8
                 RETURNING *
                 `,
                 [
@@ -311,6 +356,7 @@ router.put("/:id", async (req, res) => {
                     start_date || null,
                     end_date || null,
                     assessment_score ?? null,
+                    finalCertificationStatus,
                     trainingId
                 ]
             );
@@ -325,9 +371,28 @@ router.put("/:id", async (req, res) => {
             }
 
 
+            // =================================================
+            // SYNC PROVIDER TO TRAINEE PROFILE
+            // =================================================
+
+            await pool.query(
+                `
+                UPDATE public.trainees
+                SET
+                    provider = $1
+                WHERE trainee_id = $2
+                `,
+                [
+                    course_provider?.trim() || null,
+                    trainee_id
+                ]
+            );
+
+
             return res.json({
                 message:
                     "Training record updated successfully",
+
                 training:
                     result.rows[0]
             });
@@ -349,9 +414,6 @@ router.put("/:id", async (req, res) => {
 
         // =================================================
         // NORMAL USER → ONLY OWN RECORD
-        //
-        // trainee_id body se update nahi hoga.
-        // Ownership database level par check hogi.
         // =================================================
 
         if (!skill || !skill.trim()) {
@@ -371,9 +433,10 @@ router.put("/:id", async (req, res) => {
                 course_provider = $2,
                 start_date = $3,
                 end_date = $4,
-                assessment_score = $5
-            WHERE training_id = $6
-              AND trainee_id = $7
+                assessment_score = $5,
+                certification_status = $6
+            WHERE training_id = $7
+              AND trainee_id = $8
             RETURNING *
             `,
             [
@@ -382,6 +445,7 @@ router.put("/:id", async (req, res) => {
                 start_date || null,
                 end_date || null,
                 assessment_score ?? null,
+                finalCertificationStatus,
                 trainingId,
                 req.user.trainee_id
             ]
@@ -401,9 +465,28 @@ router.put("/:id", async (req, res) => {
         }
 
 
+        // =================================================
+        // SYNC PROVIDER TO TRAINEE PROFILE
+        // =================================================
+
+        await pool.query(
+            `
+            UPDATE public.trainees
+            SET
+                provider = $1
+            WHERE trainee_id = $2
+            `,
+            [
+                course_provider?.trim() || null,
+                req.user.trainee_id
+            ]
+        );
+
+
         return res.json({
             message:
                 "Training record updated successfully",
+
             training:
                 result.rows[0]
         });
@@ -418,6 +501,7 @@ router.put("/:id", async (req, res) => {
         return res.status(500).json({
             error:
                 "Failed to update training record",
+
             details:
                 error.message
         });
@@ -471,6 +555,7 @@ router.delete(
             return res.json({
                 message:
                     "Training record deleted successfully",
+
                 training:
                     result.rows[0]
             });
