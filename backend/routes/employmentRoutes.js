@@ -4,14 +4,14 @@ const pool = require("../db");
 const requireAdmin = require("../middleware/requireAdmin");
 
 // =====================================================
-// GET ALL EMPLOYMENT RECORDS
+// GET EMPLOYMENT RECORDS
+// ADMIN → ALL
+// NORMAL USER → OWN ONLY
 // =====================================================
 router.get("/", async (req, res) => {
     try {
-
-        // ADMIN → sabhi employment records
+        // ADMIN → sabhi records
         if (req.user.role === "admin") {
-
             const result = await pool.query(`
                 SELECT *
                 FROM public.employment
@@ -21,14 +21,14 @@ router.get("/", async (req, res) => {
             return res.json(result.rows);
         }
 
-        // NORMAL USER → trainee profile linked hona chahiye
+        // NORMAL USER → trainee profile required
         if (!req.user.trainee_id) {
             return res.status(403).json({
                 error: "No trainee profile linked to this account"
             });
         }
 
-        // NORMAL USER → sirf apna employment data
+        // NORMAL USER → sirf apna data
         const result = await pool.query(
             `
             SELECT *
@@ -42,7 +42,6 @@ router.get("/", async (req, res) => {
         return res.json(result.rows);
 
     } catch (error) {
-
         console.error("Error fetching employment:", error);
 
         return res.status(500).json({
@@ -53,12 +52,11 @@ router.get("/", async (req, res) => {
 
 
 // =====================================================
-// POST - ADD NEW EMPLOYMENT RECORD
-// ADMIN ONLY
+// POST - ADD EMPLOYMENT
+// ADMIN + NORMAL USER (OWN RECORD)
 // =====================================================
-router.post("/", requireAdmin, async (req, res) => {
+router.post("/", async (req, res) => {
     try {
-
         const {
             trainee_id,
             employer,
@@ -71,6 +69,28 @@ router.post("/", requireAdmin, async (req, res) => {
             retained,
             relevance
         } = req.body;
+
+        const isAdmin = req.user.role === "admin";
+
+        // NORMAL USER → trainee profile required
+        if (!isAdmin && !req.user.trainee_id) {
+            return res.status(403).json({
+                error: "No trainee profile linked to this account"
+            });
+        }
+
+        // ADMIN → body se trainee_id
+        // USER → token se trainee_id
+        const finalTraineeId = isAdmin
+            ? trainee_id
+            : req.user.trainee_id;
+
+        // Safety check
+        if (!finalTraineeId) {
+            return res.status(400).json({
+                error: "Trainee ID is required"
+            });
+        }
 
         const result = await pool.query(
             `
@@ -92,7 +112,7 @@ router.post("/", requireAdmin, async (req, res) => {
             RETURNING *
             `,
             [
-                trainee_id,
+                finalTraineeId,
                 employer,
                 job_role,
                 employment_type,
@@ -111,10 +131,8 @@ router.post("/", requireAdmin, async (req, res) => {
         });
 
     } catch (error) {
-
         console.error("Error adding employment:", error);
 
-        // Development ke liye actual database error bhi return hoga
         return res.status(500).json({
             error: "Failed to add employment record",
             details: error.message
@@ -124,12 +142,11 @@ router.post("/", requireAdmin, async (req, res) => {
 
 
 // =====================================================
-// PUT - UPDATE EMPLOYMENT RECORD
-// ADMIN ONLY
+// PUT - UPDATE EMPLOYMENT
+// ADMIN + NORMAL USER (OWN RECORD)
 // =====================================================
-router.put("/:id", requireAdmin, async (req, res) => {
+router.put("/:id", async (req, res) => {
     try {
-
         const {
             trainee_id,
             employer,
@@ -145,32 +162,92 @@ router.put("/:id", requireAdmin, async (req, res) => {
 
         const employmentId = Number(req.params.id);
 
-        // ID valid hai ya nahi
         if (!Number.isInteger(employmentId)) {
             return res.status(400).json({
                 error: "Invalid employment ID"
             });
         }
 
+        const isAdmin = req.user.role === "admin";
+
+        // =================================================
+        // ADMIN → FULL UPDATE
+        // =================================================
+        if (isAdmin) {
+            const result = await pool.query(
+                `
+                UPDATE public.employment
+                SET
+                    trainee_id = $1,
+                    employer = $2,
+                    job_role = $3,
+                    employment_type = $4,
+                    outcome_status = $5,
+                    joining_date = $6,
+                    starting_salary = $7,
+                    current_salary = $8,
+                    retained = $9,
+                    relevance = $10
+                WHERE employment_id = $11
+                RETURNING *
+                `,
+                [
+                    trainee_id,
+                    employer,
+                    job_role,
+                    employment_type,
+                    outcome_status,
+                    joining_date || null,
+                    starting_salary ?? null,
+                    current_salary ?? null,
+                    retained ?? false,
+                    relevance || null,
+                    employmentId
+                ]
+            );
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({
+                    error: "Employment record not found"
+                });
+            }
+
+            return res.json({
+                message: "Employment record updated successfully",
+                employment: result.rows[0]
+            });
+        }
+
+        // =================================================
+        // NORMAL USER → OWN PROFILE REQUIRED
+        // =================================================
+        if (!req.user.trainee_id) {
+            return res.status(403).json({
+                error: "No trainee profile linked to this account"
+            });
+        }
+
+        // =================================================
+        // NORMAL USER → ONLY OWN RECORD
+        // =================================================
         const result = await pool.query(
             `
             UPDATE public.employment
             SET
-                trainee_id = $1,
-                employer = $2,
-                job_role = $3,
-                employment_type = $4,
-                outcome_status = $5,
-                joining_date = $6,
-                starting_salary = $7,
-                current_salary = $8,
-                retained = $9,
-                relevance = $10
-            WHERE employment_id = $11
+                employer = $1,
+                job_role = $2,
+                employment_type = $3,
+                outcome_status = $4,
+                joining_date = $5,
+                starting_salary = $6,
+                current_salary = $7,
+                retained = $8,
+                relevance = $9
+            WHERE employment_id = $10
+              AND trainee_id = $11
             RETURNING *
             `,
             [
-                trainee_id,
                 employer,
                 job_role,
                 employment_type,
@@ -180,14 +257,14 @@ router.put("/:id", requireAdmin, async (req, res) => {
                 current_salary ?? null,
                 retained ?? false,
                 relevance || null,
-                employmentId
+                employmentId,
+                req.user.trainee_id
             ]
         );
 
-        // Record nahi mila
         if (result.rows.length === 0) {
-            return res.status(404).json({
-                error: "Employment record not found"
+            return res.status(403).json({
+                error: "You can only update your own employment record"
             });
         }
 
@@ -197,7 +274,6 @@ router.put("/:id", requireAdmin, async (req, res) => {
         });
 
     } catch (error) {
-
         console.error("Error updating employment:", error);
 
         return res.status(500).json({
@@ -209,12 +285,10 @@ router.put("/:id", requireAdmin, async (req, res) => {
 
 
 // =====================================================
-// DELETE - DELETE EMPLOYMENT RECORD
-// ADMIN ONLY
+// DELETE - ADMIN ONLY
 // =====================================================
 router.delete("/:id", requireAdmin, async (req, res) => {
     try {
-
         const employmentId = Number(req.params.id);
 
         if (!Number.isInteger(employmentId)) {
@@ -244,12 +318,10 @@ router.delete("/:id", requireAdmin, async (req, res) => {
         });
 
     } catch (error) {
-
         console.error("Error deleting employment:", error);
 
         return res.status(500).json({
-            error: "Failed to delete employment record",
-            details: error.message
+            error: "Failed to delete employment record"
         });
     }
 });
