@@ -15447,3 +15447,193 @@ body {
     box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
   }
 }
+/* =========================================================
+   FOLLOW-UP TRAINEE GROUP CARD
+========================================================= */
+
+.followup-trainee-card {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #dbe4ef;
+  border-radius: 14px;
+  margin-bottom: 18px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+
+
+/* TRAINEE HEADER */
+
+.followup-trainee-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 20px;
+  background: #f8fbff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.followup-trainee-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.followup-trainee-name {
+  margin: 0 0 4px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.followup-trainee-id {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.followup-trainee-actions {
+  display: flex;
+  gap: 8px;
+}
+
+
+/* CONTACT */
+
+.followup-contact-button,
+.followup-history-button {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #bfdbfe;
+  background: #ffffff;
+  color: #2563eb;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.followup-contact-button:hover,
+.followup-history-button:hover {
+  background: #eff6ff;
+}
+
+
+/* MILESTONES */
+
+.followup-milestones {
+  padding: 8px 20px;
+}
+
+
+/* EACH 3/6/12 FOLLOW-UP */
+
+.followup-milestone {
+  display: grid;
+  grid-template-columns: minmax(250px, 1fr) 180px 170px;
+  gap: 20px;
+  align-items: center;
+
+  padding: 18px 4px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.followup-milestone:last-child {
+  border-bottom: none;
+}
+
+
+/* INFO */
+
+.followup-milestone-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+
+  font-size: 13px;
+  color: #64748b;
+}
+
+.followup-type {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.followup-due-date {
+  color: #475569;
+}
+
+
+/* STATUS */
+
+.followup-milestone-status {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.followup-milestone-status label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.followup-milestone-status select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 7px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #1e293b;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+
+/* STATUS LABEL */
+
+.followup-status-label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+
+/* ACTIONS */
+
+.followup-milestone-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.followup-milestone-actions button {
+  width: 100%;
+  min-height: 36px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+
+/* MOBILE */
+
+@media (max-width: 900px) {
+
+  .followup-milestone {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .followup-milestone-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .followup-milestone-actions button {
+    width: auto;
+  }
+
+  .followup-trainee-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+}

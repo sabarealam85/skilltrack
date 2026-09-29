@@ -5176,83 +5176,104 @@ function CareerJourney({
   skillGaps = []
 }) {
 
-  /* =========================
+  /* =====================================================
+     TRAINEE ID
+  ===================================================== */
+
+  const traineeId =
+    trainee?.trainee_id ||
+    trainee?.id ||
+    "";
+
+
+  /* =====================================================
      TRAINEE TRAINING
-  ========================= */
+  ===================================================== */
 
   const traineeTraining = training
-    .filter(item => item.trainee_id === trainee.id)
+    .filter(
+      item =>
+        String(item?.trainee_id || "").trim() ===
+        String(traineeId).trim()
+    )
     .sort(
       (a, b) =>
-        new Date(a.start_date || 0) -
-        new Date(b.start_date || 0)
+        new Date(a?.start_date || 0) -
+        new Date(b?.start_date || 0)
     );
 
 
-  /* =========================
+  /* =====================================================
      TRAINEE EMPLOYMENT
-  ========================= */
+  ===================================================== */
 
   const traineeEmployment = employment
-    .filter(item => item.trainee_id === trainee.id);
-
-
-  /* =========================
-     TRAINEE FOLLOW-UPS
-  ========================= */
-
-  const traineeFollowups = followups
-    .filter(item => item.trainee_id === trainee.id)
+    .filter(
+      item =>
+        String(item?.trainee_id || "").trim() ===
+        String(traineeId).trim()
+    )
     .sort(
       (a, b) =>
-        new Date(a.followup_date || 0) -
-        new Date(b.followup_date || 0)
+        new Date(
+          a?.start_date ||
+          a?.joining_date ||
+          0
+        ) -
+        new Date(
+          b?.start_date ||
+          b?.joining_date ||
+          0
+        )
     );
 
 
-  /* =========================
+  /* =====================================================
+     TRAINEE FOLLOW-UPS
+  ===================================================== */
+
+  const traineeFollowups = followups
+    .filter(
+      item =>
+        String(item?.trainee_id || "").trim() ===
+        String(traineeId).trim()
+    )
+    .sort(
+      (a, b) =>
+        new Date(a?.followup_date || 0) -
+        new Date(b?.followup_date || 0)
+    );
+
+
+  /* =====================================================
      TRAINEE SKILL GAPS
-  ========================= */
+  ===================================================== */
 
-  const traineeSkillGaps = skillGaps.filter(
-    item => item.trainee_id === trainee.id
-  );
-
-
-  /* =========================
-     SKILL GAP TEXT
-  ========================= */
-
-  const skillGapText =
-    traineeSkillGaps.length > 0
-      ? traineeSkillGaps
-          .map(item => item.required_skill)
-          .filter(Boolean)
-          .join(", ")
-      : "No skill gap recorded";
+  const traineeSkillGaps =
+    skillGaps.filter(
+      item =>
+        String(item?.trainee_id || "").trim() ===
+        String(traineeId).trim()
+    );
 
 
-  /* =========================
-     RECOMMENDED SKILL
-  ========================= */
-
-  const recommendedSkill =
-    traineeSkillGaps.length > 0
-      ? traineeSkillGaps
-          .map(item => item.recommendation)
-          .filter(Boolean)
-          .join(", ")
-      : "Recommendation pending";
-
-
-  /* =========================
+  /* =====================================================
      DATE FORMAT
-  ========================= */
+  ===================================================== */
 
   const formatDate = (date) => {
-    if (!date) return "Date not available";
 
-    return new Date(date).toLocaleDateString(
+    if (!date) {
+      return "Date not available";
+    }
+
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return "Date not available";
+    }
+
+    return parsedDate.toLocaleDateString(
       "en-IN",
       {
         day: "2-digit",
@@ -5263,202 +5284,762 @@ function CareerJourney({
   };
 
 
-  /* =========================
-     CURRENT SALARY
-  ========================= */
+  /* =====================================================
+     DATE OBJECT HELPER
+  ===================================================== */
 
-  const currentSalary =
+  const getDate = (value) => {
+
+    if (!value) {
+      return null;
+    }
+
+    const date = new Date(value);
+
+    return Number.isNaN(date.getTime())
+      ? null
+      : date;
+  };
+
+
+  /* =====================================================
+     SKILL GAP TEXT
+  ===================================================== */
+
+  const skillGapText =
+    traineeSkillGaps
+      .map(
+        item =>
+          item?.required_skill ||
+          item?.skill_gap ||
+          item?.gap
+      )
+      .filter(Boolean)
+      .join(", ");
+
+
+  /* =====================================================
+     GENERATED RECOMMENDATION
+     
+     Recommendation तभी माना जाएगा जब actual
+     recommendation value मौजूद हो।
+  ===================================================== */
+
+  const generatedRecommendations =
+    traineeSkillGaps
+      .map(
+        item =>
+          item?.recommendation ||
+          item?.recommended_skill
+      )
+      .filter(
+        value =>
+          value &&
+          String(value).trim() !== ""
+      );
+
+
+  const recommendedSkill =
+    generatedRecommendations.join(", ");
+
+
+  /* =====================================================
+     LATEST EMPLOYMENT
+  ===================================================== */
+
+  const latestEmployment =
     traineeEmployment.length > 0
-      ? traineeEmployment[0].salary ||
-        traineeEmployment[0].current_salary ||
-        "Not available"
-      : "Not available";
+      ? traineeEmployment[
+          traineeEmployment.length - 1
+        ]
+      : null;
+
+
+  /* =====================================================
+     EMPLOYMENT DATE
+  ===================================================== */
+
+  const employmentDate =
+    latestEmployment?.start_date ||
+    latestEmployment?.joining_date ||
+    null;
+
+
+  /* =====================================================
+     CERTIFIED TRAINING
+  ===================================================== */
+
+  const completedTraining =
+    traineeTraining.filter(
+      item =>
+        String(
+          item?.certification_status || ""
+        ).trim().toLowerCase() ===
+        "completed"
+    );
+
+
+  /* =====================================================
+     LATEST CERTIFIED TRAINING
+  ===================================================== */
+
+  const latestCertifiedTraining =
+    completedTraining.length > 0
+      ? completedTraining[
+          completedTraining.length - 1
+        ]
+      : null;
+
+
+  /* =====================================================
+     CERTIFICATION DATE
+
+     Certification date = training end date
+  ===================================================== */
+
+  const certificationDate =
+    latestCertifiedTraining?.end_date ||
+    null;
 
 
   /* =====================================================
      CAREER JOURNEY
-     
-     IMPORTANT ORDER:
-     
-     1. Enrollment
-     2. Training Started
-     3. Assessment Passed
-     4. Certified
-     5. Employed
-     6. Follow-up
-     7. Current Salary
-     8. Skill Gap
-     9. Recommended Skill
   ===================================================== */
 
   const journey = [];
 
 
-  /* =========================
+  /* =====================================================
      1. ENROLLMENT
-  ========================= */
+  ===================================================== */
 
   journey.push({
-    title: "Enrollment",
 
-    date: trainee.trainingYear
-      ? `Training year: ${trainee.trainingYear}`
-      : "Profile created",
+    title:
+      "Enrollment",
+
+    date:
+      trainee?.trainingYear
+        ? `Training year: ${trainee.trainingYear}`
+        : "Profile created",
 
     detail:
-      trainee.course ||
+      trainee?.course ||
       "Programme enrolled"
+
   });
 
 
-  /* =========================
-     2. TRAINING
-  ========================= */
+  /* =====================================================
+     2. TRAINING STARTED
+  ===================================================== */
 
-  traineeTraining.forEach(item => {
-
-    journey.push({
-      title: "Training Started",
-
-      date: formatDate(
-        item.start_date
-      ),
-
-      detail:
-        item.course ||
-        trainee.course ||
-        "Training programme"
-    });
-
-
-    /* =========================
-       3. ASSESSMENT
-    ========================= */
-
-    if (
-      item.assessment_score !== null &&
-      item.assessment_score !== undefined &&
-      item.assessment_score !== ""
-    ) {
+  traineeTraining.forEach(
+    item => {
 
       journey.push({
-        title: "Assessment Passed",
 
-        date: formatDate(
-          item.end_date
-        ),
+        title:
+          "Training Started",
+
+        date:
+          formatDate(
+            item?.start_date
+          ),
 
         detail:
-          `Score: ${item.assessment_score}%`
+          item?.skill ||
+          trainee?.course ||
+          "Training programme"
+
       });
 
 
-      /* =========================
+      /* =================================================
+         3. ASSESSMENT PASSED
+      ================================================= */
+
+      if (
+        item?.assessment_score !== null &&
+        item?.assessment_score !== undefined &&
+        item?.assessment_score !== ""
+      ) {
+
+        journey.push({
+
+          title:
+            "Assessment Passed",
+
+          date:
+            formatDate(
+              item?.end_date
+            ),
+
+          detail:
+            `Score: ${item.assessment_score}%`
+
+        });
+
+      }
+
+
+      /* =================================================
          4. CERTIFIED
-      ========================= */
 
-      journey.push({
-        title: "Certified",
+         IMPORTANT:
+         केवल Completed होने पर।
+      ================================================= */
 
-        date: formatDate(
-          item.end_date
-        ),
+      if (
+        String(
+          item?.certification_status || ""
+        ).trim().toLowerCase() ===
+        "completed"
+      ) {
 
-        detail:
-          "Training certification completed"
-      });
+        journey.push({
+
+          title:
+            "Certified",
+
+          date:
+            formatDate(
+              item?.end_date
+            ),
+
+          detail:
+            "Training certification completed"
+
+        });
+
+      }
 
     }
+  );
 
-  });
+
+  /* =====================================================
+     5. JOB SEARCH
+
+     We will use an ACTUAL job-search/application date
+     if your employment data contains one.
+
+     Supported possible field names:
+     - job_search_date
+     - application_date
+     - search_date
+
+     It must be:
+       certification date < job search date < joining date
+
+     Otherwise we don't invent a date.
+  ===================================================== */
+
+  const jobSearchRecord =
+    traineeEmployment.find(
+      item => {
+
+        const searchDate =
+          item?.job_search_date ||
+          item?.application_date ||
+          item?.search_date;
+
+        const search =
+          getDate(searchDate);
+
+        const certified =
+          getDate(certificationDate);
+
+        const employed =
+          getDate(
+            item?.start_date ||
+            item?.joining_date
+          );
+
+        if (
+          !search ||
+          !certified ||
+          !employed
+        ) {
+          return false;
+        }
+
+        return (
+          search > certified &&
+          search < employed
+        );
+
+      }
+    );
 
 
-  /* =========================
-     5. EMPLOYMENT
-  ========================= */
+  if (jobSearchRecord) {
 
-  traineeEmployment.forEach(item => {
+    const jobSearchDate =
+      jobSearchRecord?.job_search_date ||
+      jobSearchRecord?.application_date ||
+      jobSearchRecord?.search_date;
+
 
     journey.push({
-      title: "Employed",
 
-      date: formatDate(
-        item.start_date ||
-        item.joining_date
-      ),
-
-      detail:
-        `${item.employer || "Employer not specified"} • ${
-          item.job_role || "Role not specified"
-        }`
-    });
-
-  });
-
-
-  /* =========================
-     6. FOLLOW-UPS
-  ========================= */
-
-  traineeFollowups.forEach(item => {
-
-    journey.push({
       title:
-        item.type
-          ? `${item.type} Follow-up`
-          : "Follow-up",
+        "Job Search",
 
       date:
         formatDate(
-          item.followup_date
+          jobSearchDate
         ),
 
       detail:
-        item.response ||
-        item.status ||
-        "Follow-up recorded"
+        jobSearchRecord?.job_search_status ||
+        jobSearchRecord?.applications_count
+          ? (
+              jobSearchRecord?.job_search_status ||
+              `${jobSearchRecord.applications_count} applications`
+            )
+          : "Looking for employment"
+
     });
 
-  });
+  }
 
 
-  /* =========================
-     7. CURRENT SALARY
-  ========================= */
+  /* =====================================================
+     6. EMPLOYED
+  ===================================================== */
 
-  journey.push({
-    title: "Current Salary",
+  traineeEmployment.forEach(
+    item => {
 
-    date: "Current",
-
-    detail: currentSalary
-  });
-
-
-  /* =========================
-     8. SKILL GAP
-  ========================= */
-
-  journey.push({
-    title: "Skill Gap",
-
-    date: "Current",
-
-    detail: skillGapText
-  });
+      const employmentStatus =
+        String(
+          item?.employment_status ||
+          item?.status ||
+          ""
+        ).toLowerCase();
 
 
-  /* =========================
-     9. RECOMMENDED SKILL
-  ========================= */
+      /*
+        अगर record self-employed है तो
+        Self-employed दिखाएँगे।
+      */
 
-  journey.push({
-    title: "Recommended Skill",
+      const title =
+        employmentStatus.includes(
+          "self"
+        )
+          ? "Self-employed"
+          : "Employed";
 
-    date: "Recommended",
 
-    detail: recommendedSkill
-  });
+      journey.push({
+
+        title,
+
+        date:
+          formatDate(
+            item?.start_date ||
+            item?.joining_date
+          ),
+
+        detail:
+          `${item?.employer || "Employer not specified"} • ${
+            item?.job_role ||
+            item?.position ||
+            item?.role ||
+            "Position not specified"
+          }`
+
+      });
+
+    }
+  );
+
+
+  /* =====================================================
+     7. FOLLOW-UPS
+
+     केवल:
+       3-Month
+       6-Month
+       12-Month
+
+     और ये Employment के बाद होने चाहिए।
+  ===================================================== */
+
+  traineeFollowups.forEach(
+    item => {
+
+      const rawType =
+        String(
+          item?.type ||
+          item?.followup_type ||
+          ""
+        )
+          .toLowerCase()
+          .trim();
+
+
+      let followupTitle = "";
+
+
+      /* =========================
+         3 MONTH
+      ========================= */
+
+      if (
+        rawType.includes("3") &&
+        rawType.includes("month")
+      ) {
+
+        followupTitle =
+          "3-Month Follow-up";
+
+      }
+
+
+      /* =========================
+         6 MONTH
+      ========================= */
+
+      else if (
+        rawType.includes("6") &&
+        rawType.includes("month")
+      ) {
+
+        followupTitle =
+          "6-Month Follow-up";
+
+      }
+
+
+      /* =========================
+         12 MONTH
+      ========================= */
+
+      else if (
+        rawType.includes("12") &&
+        rawType.includes("month")
+      ) {
+
+        followupTitle =
+          "12-Month Follow-up";
+
+      }
+
+
+      /*
+        Ignore any other follow-up.
+      */
+
+      if (!followupTitle) {
+        return;
+      }
+
+
+      /* =================================================
+         FOLLOW-UP DATE
+      ================================================= */
+
+      const followupDate =
+        item?.followup_date ||
+        item?.date;
+
+
+      /*
+        Follow-up must happen after employment.
+      */
+
+      const followupDateObj =
+        getDate(followupDate);
+
+      const employmentDateObj =
+        getDate(
+          employmentDate
+        );
+
+
+      if (
+        employmentDateObj &&
+        followupDateObj &&
+        followupDateObj <=
+          employmentDateObj
+      ) {
+
+        return;
+
+      }
+
+
+      /* =================================================
+         EMPLOYMENT STATUS
+      ================================================= */
+
+      const status =
+        item?.employment_status ||
+        item?.employmentStatus ||
+        item?.status ||
+        "";
+
+
+      /* =================================================
+         POSITION
+      ================================================= */
+
+      const position =
+        item?.job_role ||
+        item?.position ||
+        item?.role ||
+        "";
+
+
+      /* =================================================
+         EMPLOYER
+      ================================================= */
+
+      const employer =
+        item?.employer ||
+        item?.company ||
+        "";
+
+
+      /* =================================================
+         SALARY
+      ================================================= */
+
+      const followupSalary =
+        item?.salary ||
+        item?.current_salary ||
+        "";
+
+
+      /* =================================================
+         BUILD FOLLOW-UP DETAIL
+      ================================================= */
+
+      const followupDetails = [];
+
+
+      if (status) {
+
+        followupDetails.push(
+          String(status)
+        );
+
+      }
+
+
+      if (employer) {
+
+        followupDetails.push(
+          employer
+        );
+
+      }
+
+
+      if (position) {
+
+        followupDetails.push(
+          position
+        );
+
+      }
+
+
+      if (followupSalary) {
+
+        followupDetails.push(
+          `₹${Number(
+            followupSalary
+          ).toLocaleString("en-IN")}/month`
+        );
+
+      }
+
+
+      if (
+        followupDetails.length === 0 &&
+        item?.response
+      ) {
+
+        followupDetails.push(
+          item.response
+        );
+
+      }
+
+
+      if (
+        followupDetails.length === 0
+      ) {
+
+        followupDetails.push(
+          "Follow-up recorded"
+        );
+
+      }
+
+
+      journey.push({
+
+        title:
+          followupTitle,
+
+        date:
+          formatDate(
+            followupDate
+          ),
+
+        detail:
+          followupDetails.join(
+            " • "
+          )
+
+      });
+
+    }
+  );
+
+
+  /* =====================================================
+     8. SALARY UPDATE
+
+     Salary तभी दिखेगी जब actual salary मौजूद हो।
+  ===================================================== */
+
+  const salarySources = [
+
+    ...traineeFollowups
+      .map(
+        item => ({
+
+          salary:
+            item?.salary ||
+            item?.current_salary,
+
+          date:
+            item?.salary_updated_date ||
+            item?.followup_date
+
+        })
+      ),
+
+    ...traineeEmployment
+      .map(
+        item => ({
+
+          salary:
+            item?.salary ||
+            item?.current_salary,
+
+          date:
+            item?.salary_updated_date ||
+            item?.start_date ||
+            item?.joining_date
+
+        })
+      )
+
+  ];
+
+
+  const validSalaryRecords =
+    salarySources.filter(
+      item =>
+        item?.salary !== null &&
+        item?.salary !== undefined &&
+        item?.salary !== "" &&
+        Number(item.salary) > 0
+    );
+
+
+  const latestSalary =
+    validSalaryRecords.length > 0
+      ? validSalaryRecords[
+          validSalaryRecords.length - 1
+        ]
+      : null;
+
+
+  if (latestSalary) {
+
+    journey.push({
+
+      title:
+        "Salary Update",
+
+      date:
+        formatDate(
+          latestSalary.date
+        ),
+
+      detail:
+        `₹${Number(
+          latestSalary.salary
+        ).toLocaleString(
+          "en-IN"
+        )}/month`
+
+    });
+
+  }
+
+
+  /* =====================================================
+     9. SKILL GAP
+
+     केवल actual skill gap होने पर।
+  ===================================================== */
+
+  if (
+    traineeSkillGaps.length > 0 &&
+    skillGapText
+  ) {
+
+    journey.push({
+
+      title:
+        "Skill Gap",
+
+      date:
+        "Current",
+
+      detail:
+        skillGapText
+
+    });
+
+  }
+
+
+  /* =====================================================
+     10. SKILL RECOMMENDATION
+
+     सबसे LAST.
+
+     केवल generated recommendation होने पर।
+  ===================================================== */
+
+  if (
+    generatedRecommendations.length > 0
+  ) {
+
+    journey.push({
+
+      title:
+        "Skill Recommendation",
+
+      date:
+        "Recommended",
+
+      detail:
+        recommendedSkill
+
+    });
+
+  }
 
 
   /* =====================================================
@@ -5470,31 +6051,44 @@ function CareerJourney({
     <div className="career-journey-new">
 
 
-      {/* =========================
+      {/* =================================================
           HEADER
-      ========================= */}
+      ================================================= */}
 
-      <div className="career-journey-header-new">
+      <div
+        className="career-journey-header-new"
+      >
 
         <h3>
           Career Journey
         </h3>
 
 
-        <div className="career-trainee-name-new">
+        <div
+          className="career-trainee-name-new"
+        >
 
-          {trainee.name} ({trainee.id})
+          {trainee?.name ||
+            "Trainee"}
+
+          {" ("}
+
+          {traineeId || "—"}
+
+          {")"}
 
         </div>
 
       </div>
 
 
-      {/* =========================
+      {/* =================================================
           TIMELINE
-      ========================= */}
+      ================================================= */}
 
-      <div className="career-timeline-new">
+      <div
+        className="career-timeline-new"
+      >
 
         {journey.map(
           (event, index) => (
@@ -5509,38 +6103,50 @@ function CareerJourney({
 
               {/* VERTICAL LINE */}
 
-              {index !== journey.length - 1 && (
+              {index !==
+                journey.length - 1 && (
 
-                <div className="career-line-new"></div>
+                <div
+                  className="career-line-new"
+                />
 
               )}
 
 
-              {/* TIMELINE DOT */}
+              {/* DOT */}
 
-              <div className="career-dot-new"></div>
+              <div
+                className="career-dot-new"
+              />
 
 
               {/* EVENT CARD */}
 
-              <div className="career-event-card-new">
+              <div
+                className="career-event-card-new"
+              >
 
+                <div
+                  className="career-event-content-new"
+                >
 
-                {/* EVENT CONTENT */}
-
-                <div className="career-event-content-new">
-
-                  <div className="career-event-title-new">
+                  <div
+                    className="career-event-title-new"
+                  >
 
                     {event.title}
 
                   </div>
 
 
-                  <div className="career-event-detail-new">
+                  <div
+                    className="career-event-detail-new"
+                  >
 
                     {event.date}
+
                     {" • "}
+
                     {event.detail}
 
                   </div>
@@ -5548,7 +6154,7 @@ function CareerJourney({
                 </div>
 
 
-                {/* VIEW BUTTON */}
+                {/* VIEW */}
 
                 <button
                   type="button"
@@ -5567,7 +6173,6 @@ function CareerJourney({
 
                 </button>
 
-
               </div>
 
             </div>
@@ -5580,6 +6185,7 @@ function CareerJourney({
     </div>
 
   );
+
 }
 
 function TraineeCard({t}){return <div className="card trainee-card"><div className="person"><div className="avatar">{t.name.split(" ").map(x=>x[0]).join("")}</div><div><b>{t.name}</b><small>{t.id}</small></div></div><hr/><div className="mini-grid"><span>Programme<b>{t.course}</b></span><span>Outcome<b>{t.status}</b></span><span>Skill gap<b>{t.gap}</b></span><span>Progress<b>{t.progress}%</b></span></div><div className="progress"><i style={{width:t.progress+"%"}}/></div></div>}
@@ -10158,29 +10764,632 @@ function FollowUps({
   setFollowups
 }) {
   const [showForm, setShowForm] = React.useState(false);
+  const [showFollowupModal, setShowFollowupModal] = React.useState(false);
+  const [showHistoryModal, setShowHistoryModal] = React.useState(false);
 
-  const [formData, setFormData] = React.useState({
-    trainee_id: "",
-    followup_date: "",
-    type: "Employment",
-    response: "",
-    status: "Pending",
-    source: ""
-  });
+  const [selectedFollowup, setSelectedFollowup] = React.useState(null);
+  const [historyTrainee, setHistoryTrainee] = React.useState(null);
 
   const [saving, setSaving] = React.useState(false);
+
+  const [editingFollowup, setEditingFollowup] = React.useState(null);
+  const [showEditForm, setShowEditForm] = React.useState(false);
 
   const isAdmin =
     localStorage.getItem("skilltrack_role") === "admin";
 
-  const [editingFollowup, setEditingFollowup] =
-    React.useState(null);
+  /*
+   * ---------------------------------------------------------
+   * ADMIN ADD FORM
+   * ---------------------------------------------------------
+   */
 
-  const [showEditForm, setShowEditForm] =
-    React.useState(false);
+  const [formData, setFormData] = React.useState({
+    trainee_id: "",
+    followup_date: "",
+    type: "3-Month Follow-up",
+    response: "",
+    status: "Pending",
+    source: "",
+    employment_status: "",
+    employer: "",
+    job_role: "",
+    current_salary: "",
+    reason: "",
+    salary_updated: false
+  });
+
+  /*
+   * ---------------------------------------------------------
+   * FOLLOW-UP RESPONSE FORM
+   * ---------------------------------------------------------
+   */
+
+  const [followupForm, setFollowupForm] = React.useState({
+    employment_status: "",
+    employer: "",
+    job_role: "",
+    current_salary: "",
+    salary_updated: false,
+    reason: "",
+    response: "",
+    source: "Trainee"
+  });
+
+  /*
+   * ---------------------------------------------------------
+   * HELPERS
+   * ---------------------------------------------------------
+   */
+
+  const getTraineeId = (trainee) =>
+    trainee?.trainee_id ||
+    trainee?.id ||
+    "";
+
+  const getTraineeName = (trainee) =>
+    trainee?.name ||
+    trainee?.full_name ||
+    trainee?.fullName ||
+    "Unknown trainee";
+
+  const findTrainee = (traineeId) =>
+    trainees.find(
+      (t) =>
+        String(getTraineeId(t)) ===
+        String(traineeId)
+    );
+
+  const formatDate = (date) => {
+    if (!date) return "Not specified";
+
+    const value = String(date).slice(0, 10);
+
+    const parts = value.split("-");
+
+    if (parts.length !== 3) {
+      return new Date(date).toLocaleDateString("en-IN");
+    }
+
+    return new Date(
+      Number(parts[0]),
+      Number(parts[1]) - 1,
+      Number(parts[2])
+    ).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric"
+    });
+  };
+
+  const getTodayString = () => {
+    const today = new Date();
+
+    const year = today.getFullYear();
+    const month = String(
+      today.getMonth() + 1
+    ).padStart(2, "0");
+    const day = String(
+      today.getDate()
+    ).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  };
+
+  const normalizeDate = (date) =>
+    date
+      ? String(date).slice(0, 10)
+      : "";
+
+  const isCompleted = (followup) =>
+    String(followup?.status || "")
+      .toLowerCase() === "completed";
+
+  const isPending = (followup) =>
+    String(followup?.status || "")
+      .toLowerCase() === "pending";
+
+  const isInProgress = (followup) =>
+    String(followup?.status || "")
+      .toLowerCase() === "in progress";
+
+  /*
+   * Only scheduled 3/6/12 month follow-ups
+   * are treated as the main follow-up schedule.
+   */
+
+  const scheduledFollowups = followups.filter((f) =>
+    [
+      "3-Month Follow-up",
+      "6-Month Follow-up",
+      "12-Month Follow-up"
+    ].includes(f.type)
+  );
+
+  const today = getTodayString();
+
+  const dueToday = scheduledFollowups.filter(
+    (f) =>
+      normalizeDate(f.followup_date) === today &&
+      !isCompleted(f)
+  );
+
+  const overdue = scheduledFollowups.filter(
+    (f) =>
+      normalizeDate(f.followup_date) < today &&
+      !isCompleted(f)
+  );
+
+  const pendingCount = scheduledFollowups.filter(
+    (f) =>
+      !isCompleted(f) &&
+      (
+        isPending(f) ||
+        isInProgress(f)
+      )
+  );
+
+  const completedCount = scheduledFollowups.filter(
+    (f) => isCompleted(f)
+  );
+
+  /*
+   * Employer verification is counted only for records
+   * explicitly marked with Employer as the source.
+   */
+  const employerVerificationPending =
+    scheduledFollowups.filter(
+      (f) =>
+        String(f.source || "").toLowerCase() ===
+          "employer" &&
+        !isCompleted(f)
+    );
+
+  /*
+   * ---------------------------------------------------------
+   * SORT FOLLOW-UPS
+   * ---------------------------------------------------------
+   */
+
+  const sortedFollowups = [
+    ...scheduledFollowups
+  ].sort((a, b) => {
+    const dateA = normalizeDate(a.followup_date);
+    const dateB = normalizeDate(b.followup_date);
+
+    return dateA.localeCompare(dateB);
+  });
+/* ---------------------------------------------------------
+ * GROUP FOLLOW-UPS BY TRAINEE
+ * --------------------------------------------------------- */
+
+const groupedFollowups = Object.values(
+  sortedFollowups.reduce((groups, followup) => {
+    const traineeId = String(followup.trainee_id);
+
+    if (!groups[traineeId]) {
+      groups[traineeId] = {
+        trainee_id: followup.trainee_id,
+        followups: []
+      };
+    }
+
+    groups[traineeId].followups.push(followup);
+
+    return groups;
+  }, {})
+);
+  /*
+   * ---------------------------------------------------------
+   * OPEN FOLLOW-UP
+   * ---------------------------------------------------------
+   */
+
+  const openFollowup = (followup) => {
+    setSelectedFollowup(followup);
+
+    setFollowupForm({
+      employment_status:
+        followup.employment_status || "",
+
+      employer:
+        followup.employer || "",
+
+      job_role:
+        followup.job_role || "",
+
+      current_salary:
+        followup.current_salary ??
+        "",
+
+      salary_updated:
+        Boolean(followup.salary_updated),
+
+      reason:
+        followup.reason || "",
+
+      response:
+        followup.response || "",
+
+      source:
+        followup.source ||
+        "Trainee"
+    });
+
+    setShowFollowupModal(true);
+  };
+    /* 
+   * ---------------------------------------------------------
+   * UPDATE FOLLOW-UP STATUS
+   * ---------------------------------------------------------
+   */
+
+  const handleStatusChange = async (followup, newStatus) => {
+    try {
+      setSaving(true);
+
+      const response = await authFetch(
+        `${API_URL}/api/followups/${followup.followup_id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            trainee_id: followup.trainee_id,
+            followup_date: normalizeDate(
+              followup.followup_date
+            ),
+            type: followup.type,
+            response: followup.response || "",
+            status: newStatus,
+            source: followup.source || "Trainee",
+
+            employment_status:
+              followup.employment_status || "",
+
+            employer:
+              followup.employer || "",
+
+            job_role:
+              followup.job_role || "",
+
+            current_salary:
+              followup.current_salary ?? null,
+
+            reason:
+              followup.reason || "",
+
+            salary_updated:
+              Boolean(followup.salary_updated)
+          })
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error || "Failed to update status"
+        );
+      }
+
+      setFollowups((prev) =>
+        prev.map((item) =>
+          item.followup_id ===
+          result.followup.followup_id
+            ? result.followup
+            : item
+        )
+      );
+
+    } catch (error) {
+      console.error(
+        "Status update error:",
+        error
+      );
+
+      alert(
+        "ERROR: " +
+        error.message
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /*
+   * ---------------------------------------------------------
+   * START FOLLOW-UP
+   * ---------------------------------------------------------
+   */
+
+  const handleStartFollowup = async (followup) => {
+    try {
+      setSaving(true);
+
+      const response = await authFetch(
+        `${API_URL}/api/followups/${followup.followup_id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            trainee_id: followup.trainee_id,
+            followup_date: normalizeDate(
+              followup.followup_date
+            ),
+            type: followup.type,
+            response: followup.response || "",
+            status: "In Progress",
+            source:
+              followup.source ||
+              "Trainee",
+
+            employment_status:
+              followup.employment_status ||
+              "",
+
+            employer:
+              followup.employer ||
+              "",
+
+            job_role:
+              followup.job_role ||
+              "",
+
+            current_salary:
+              followup.current_salary ??
+              null,
+
+            reason:
+              followup.reason ||
+              "",
+
+            salary_updated:
+              Boolean(
+                followup.salary_updated
+              )
+          })
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+          "Failed to start follow-up"
+        );
+      }
+
+      setFollowups((prev) =>
+        prev.map((item) =>
+          item.followup_id ===
+          result.followup.followup_id
+            ? result.followup
+            : item
+        )
+      );
+
+      openFollowup(result.followup);
+
+    } catch (error) {
+      console.error(
+        "Start follow-up error:",
+        error
+      );
+
+      alert(
+        "ERROR: " +
+        error.message
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /*
+   * ---------------------------------------------------------
+   * SAVE / COMPLETE FOLLOW-UP
+   * ---------------------------------------------------------
+   */
+
+  const handleSaveFollowup = async (
+    complete = true
+  ) => {
+    if (!selectedFollowup) return;
+
+    if (
+      !followupForm.employment_status
+    ) {
+      alert(
+        "Please select the current employment status."
+      );
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const response = await authFetch(
+        `${API_URL}/api/followups/${selectedFollowup.followup_id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            trainee_id:
+              selectedFollowup.trainee_id,
+
+            followup_date:
+              normalizeDate(
+                selectedFollowup.followup_date
+              ),
+
+            type:
+              selectedFollowup.type,
+
+            response:
+              followupForm.response || "",
+
+            status:
+              complete
+                ? "Completed"
+                : "In Progress",
+
+            source:
+              followupForm.source ||
+              "Trainee",
+
+            employment_status:
+              followupForm.employment_status,
+
+            employer:
+              followupForm.employer ||
+              "",
+
+            job_role:
+              followupForm.job_role ||
+              "",
+
+            current_salary:
+              followupForm.current_salary === ""
+                ? null
+                : Number(
+                    followupForm.current_salary
+                  ),
+
+            reason:
+              followupForm.reason ||
+              "",
+
+            salary_updated:
+              Boolean(
+                followupForm.salary_updated
+              )
+          })
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+          "Failed to save follow-up"
+        );
+      }
+
+      setFollowups((prev) =>
+        prev.map((item) =>
+          item.followup_id ===
+          result.followup.followup_id
+            ? result.followup
+            : item
+        )
+      );
+
+      setSelectedFollowup(
+        result.followup
+      );
+
+      setFollowupForm({
+        employment_status:
+          result.followup.employment_status ||
+          "",
+
+        employer:
+          result.followup.employer ||
+          "",
+
+        job_role:
+          result.followup.job_role ||
+          "",
+
+        current_salary:
+          result.followup.current_salary ??
+          "",
+
+        salary_updated:
+          Boolean(
+            result.followup.salary_updated
+          ),
+
+        reason:
+          result.followup.reason ||
+          "",
+
+        response:
+          result.followup.response ||
+          "",
+
+        source:
+          result.followup.source ||
+          "Trainee"
+      });
+
+      if (complete) {
+        setShowFollowupModal(false);
+
+        alert(
+          "Follow-up completed successfully."
+        );
+      } else {
+        alert(
+          "Follow-up saved successfully."
+        );
+      }
+
+    } catch (error) {
+      console.error(
+        "Save follow-up error:",
+        error
+      );
+
+      alert(
+        "ERROR: " +
+        error.message
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /*
+   * ---------------------------------------------------------
+   * VIEW HISTORY
+   * ---------------------------------------------------------
+   */
+
+  const handleViewHistory = (followup) => {
+    const trainee =
+      findTrainee(
+        followup.trainee_id
+      );
+
+    setHistoryTrainee({
+      trainee,
+      trainee_id:
+        followup.trainee_id
+    });
+
+    setShowHistoryModal(true);
+  };
+
+  /*
+   * ---------------------------------------------------------
+   * ADMIN ADD FOLLOW-UP
+   * ---------------------------------------------------------
+   */
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const {
+      name,
+      value
+    } = e.target;
 
     setFormData((prev) => ({
       ...prev,
@@ -10212,7 +11421,21 @@ function FollowUps({
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify(formData)
+          body: JSON.stringify({
+            ...formData,
+
+            current_salary:
+              formData.current_salary === ""
+                ? null
+                : Number(
+                    formData.current_salary
+                  ),
+
+            salary_updated:
+              Boolean(
+                formData.salary_updated
+              )
+          })
         }
       );
 
@@ -10220,7 +11443,8 @@ function FollowUps({
 
       if (!response.ok) {
         throw new Error(
-          result.error || "Failed to add follow-up"
+          result.error ||
+          "Failed to add follow-up"
         );
       }
 
@@ -10232,26 +11456,44 @@ function FollowUps({
       setFormData({
         trainee_id: "",
         followup_date: "",
-        type: "Employment",
+        type: "3-Month Follow-up",
         response: "",
         status: "Pending",
-        source: ""
+        source: "",
+        employment_status: "",
+        employer: "",
+        job_role: "",
+        current_salary: "",
+        reason: "",
+        salary_updated: false
       });
 
       setShowForm(false);
 
-      alert("Follow-up added successfully!");
+      alert(
+        "Follow-up added successfully!"
+      );
+
     } catch (error) {
       console.error(
         "Add follow-up error:",
         error
       );
 
-      alert("ERROR: " + error.message);
+      alert(
+        "ERROR: " +
+        error.message
+      );
     } finally {
       setSaving(false);
     }
   };
+
+  /*
+   * ---------------------------------------------------------
+   * EDIT FOLLOW-UP - ADMIN
+   * ---------------------------------------------------------
+   */
 
   const handleEditFollowup = async (e) => {
     e.preventDefault();
@@ -10277,7 +11519,26 @@ function FollowUps({
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify(editingFollowup)
+          body: JSON.stringify({
+            ...editingFollowup,
+
+            followup_date:
+              normalizeDate(
+                editingFollowup.followup_date
+              ),
+
+            current_salary:
+              editingFollowup.current_salary === ""
+                ? null
+                : Number(
+                    editingFollowup.current_salary
+                  ),
+
+            salary_updated:
+              Boolean(
+                editingFollowup.salary_updated
+              )
+          })
         }
       );
 
@@ -10285,7 +11546,8 @@ function FollowUps({
 
       if (!response.ok) {
         throw new Error(
-          result.error || "Failed to update follow-up"
+          result.error ||
+          "Failed to update follow-up"
         );
       }
 
@@ -10301,27 +11563,40 @@ function FollowUps({
       setEditingFollowup(null);
       setShowEditForm(false);
 
-      alert("Follow-up updated successfully!");
+      alert(
+        "Follow-up updated successfully!"
+      );
+
     } catch (error) {
       console.error(
         "Edit follow-up error:",
         error
       );
 
-      alert("ERROR: " + error.message);
+      alert(
+        "ERROR: " +
+        error.message
+      );
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDeleteFollowup = async (followupId) => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this follow-up?"
-    );
+  /*
+   * ---------------------------------------------------------
+   * DELETE FOLLOW-UP - ADMIN
+   * ---------------------------------------------------------
+   */
 
-    if (!confirmDelete) {
-      return;
-    }
+  const handleDeleteFollowup = async (
+    followupId
+  ) => {
+    const confirmDelete =
+      window.confirm(
+        "Are you sure you want to delete this follow-up?"
+      );
+
+    if (!confirmDelete) return;
 
     try {
       const response = await authFetch(
@@ -10331,58 +11606,174 @@ function FollowUps({
         }
       );
 
-      const result = await response.json();
+      const result =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
-          result.error || "Failed to delete follow-up"
+          result.error ||
+          "Failed to delete follow-up"
         );
       }
 
       setFollowups((prev) =>
         prev.filter(
           (item) =>
-            item.followup_id !== followupId
+            item.followup_id !==
+            followupId
         )
       );
 
-      alert("Follow-up deleted successfully!");
+      alert(
+        "Follow-up deleted successfully!"
+      );
+
     } catch (error) {
       console.error(
         "Delete follow-up error:",
         error
       );
 
-      alert("ERROR: " + error.message);
+      alert(
+        "ERROR: " +
+        error.message
+      );
     }
   };
 
-  const getTraineeId = (trainee) =>
-    trainee?.trainee_id ||
-    trainee?.id ||
-    "";
+  /*
+   * ---------------------------------------------------------
+   * STATUS CLASS
+   * ---------------------------------------------------------
+   */
 
-  const getTraineeName = (trainee) =>
-    trainee?.name ||
-    trainee?.full_name ||
-    "Unknown trainee";
+  const getStatusClass = (followup) => {
+    if (isCompleted(followup)) {
+      return "completed";
+    }
+
+    if (
+      normalizeDate(
+        followup.followup_date
+      ) < today
+    ) {
+      return "overdue";
+    }
+
+    if (isInProgress(followup)) {
+      return "in-progress";
+    }
+
+    return "pending";
+  };
+
+  const getStatusText = (followup) => {
+    if (isCompleted(followup)) {
+      return "Completed";
+    }
+
+    if (
+      normalizeDate(
+        followup.followup_date
+      ) < today
+    ) {
+      return "Overdue";
+    }
+
+    if (isInProgress(followup)) {
+      return "In Progress";
+    }
+
+    return "Pending";
+  };
+
+  /*
+   * ---------------------------------------------------------
+   * RENDER
+   * ---------------------------------------------------------
+   */
 
   return (
     <div className="content followups-page">
 
       <PageIntro
-        title="Follow-up center"
-        text="Track trainee outcomes through scheduled follow-ups at 3, 6 and 12 months."
+        title="Follow-up Center"
+        text="Track trainee outcomes through scheduled 3, 6 and 12-month follow-ups."
       />
 
-      {/* ADD BUTTON */}
+      {/* =====================================================
+          SUMMARY CARDS
+      ===================================================== */}
+
+      <div
+        className="followup-summary-grid"
+        style={{
+          display: "grid",
+          gridTemplateColumns:
+            "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: "16px",
+          marginBottom: "24px"
+        }}
+      >
+
+        <div className="card">
+          <div className="card-body">
+            <small>Due Today</small>
+            <h2>{dueToday.length}</h2>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-body">
+            <small>Overdue</small>
+            <h2>{overdue.length}</h2>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-body">
+            <small>Pending</small>
+            <h2>{pendingCount.length}</h2>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-body">
+            <small>Completed</small>
+            <h2>{completedCount.length}</h2>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-body">
+            <small>
+              Employer Verification Pending
+            </small>
+            <h2>
+              {employerVerificationPending.length}
+            </h2>
+          </div>
+        </div>
+
+      </div>
+
+      {/* =====================================================
+          ADMIN ADD BUTTON
+      ===================================================== */}
 
       {isAdmin && (
-        <div className="followup-toolbar">
+        <div
+          className="followup-toolbar"
+          style={{
+            marginBottom: "20px"
+          }}
+        >
           <button
             type="button"
             className="followup-add-button"
-            onClick={() => setShowForm(true)}
+            onClick={() =>
+              setShowForm(true)
+            }
           >
             <span className="followup-add-icon">
               +
@@ -10395,472 +11786,211 @@ function FollowUps({
         </div>
       )}
 
-      {/* ADD FOLLOW-UP MODAL */}
+      {/* =====================================================
+          MAIN FOLLOW-UP QUEUE
+      ===================================================== */}
 
-      {showForm && createPortal (
-        <div
-          className="followup-modal-overlay"
-          onClick={() => setShowForm(false)}
-        >
-          <div
-            className="followup-modal"
-            onClick={(e) =>
-              e.stopPropagation()
-            }
-          >
+      <Card
+        title="Scheduled Follow-up Queue"
+        subtitle={`${scheduledFollowups.length} scheduled 3/6/12-month follow-up records`}
+      >
 
-            <div className="followup-modal-header">
+        <div className="follow-list large">
 
-              <div>
-                <h3>
-                  Add new follow-up
-                </h3>
+          {sortedFollowups.length === 0 ? (
 
-                <p>
-                  Record a trainee outcome follow-up
-                </p>
-              </div>
+            <p>
+              No 3, 6 or 12-month follow-up
+              records found.
+            </p>
 
-              <button
-                type="button"
-                className="followup-close-button"
-                onClick={() =>
-                  setShowForm(false)
-                }
-              >
-                ×
-              </button>
+          ) : (
 
-            </div>
+           groupedFollowups.map((group) => {
 
-            <form
-              onSubmit={handleAddFollowup}
-              className="followup-form"
-            >
+  const trainee = findTrainee(
+    group.trainee_id
+  );
 
-              <div>
-                <label className="form-label">
-                  Trainee *
-                </label>
+  const traineeName = trainee
+    ? getTraineeName(trainee)
+    : "Trainee " + group.trainee_id;
 
-                <select
-                  name="trainee_id"
-                  value={formData.trainee_id}
-                  onChange={handleChange}
-                  className="form-input"
-                  required
-                >
-                  <option value="">
-                    Select trainee
-                  </option>
+  return (
+    <div
+      key={group.trainee_id}
+      className="followup-trainee-card"
+    >
 
-                  {trainees.map((t) => {
-                    const traineeId =
-                      getTraineeId(t);
+      {/* =========================================
+          TRAINEE HEADER
+      ========================================= */}
 
-                    return (
-                      <option
-                        key={traineeId}
-                        value={traineeId}
-                      >
-                        {getTraineeName(t)} (
-                        {traineeId}
-                        )
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
+      <div className="followup-trainee-header">
 
-              <div>
-                <label className="form-label">
-                  Follow-up Date *
-                </label>
+        <div className="followup-trainee-left">
 
-                <input
-                  type="date"
-                  name="followup_date"
-                  value={
-                    formData.followup_date
-                  }
-                  onChange={handleChange}
-                  className="form-input"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="form-label">
-                  Follow-up Type *
-                </label>
-
-                <select
-                  name="type"
-                  value={formData.type}
-                  onChange={handleChange}
-                  className="form-input"
-                  required
-                >
-                  <option value="Employment">
-                    Employment
-                  </option>
-
-                  <option value="Self Employment">
-                    Self Employment
-                  </option>
-
-                  <option value="Job Retention">
-                    Job Retention
-                  </option>
-
-                  <option value="Wage Progression">
-                    Wage Progression
-                  </option>
-
-                  <option value="Training Relevance">
-                    Training Relevance
-                  </option>
-
-                  <option value="Support Needed">
-                    Support Needed
-                  </option>
-
-                  <option value="Other">
-                    Other
-                  </option>
-                </select>
-              </div>
-
-              <div>
-                <label className="form-label">
-                  Source
-                </label>
-
-                <select
-                  name="source"
-                  value={formData.source}
-                  onChange={handleChange}
-                  className="form-input"
-                >
-                  <option value="">
-                    Select source
-                  </option>
-
-                  <option value="Email">
-                    Email
-                  </option>
-
-                  <option value="Employer">
-                    Employer
-                  </option>
-
-                  <option value="Trainee">
-                    Trainee
-                  </option>
-                </select>
-              </div>
-<div>
-
-  <label className="form-label">
-    Status
-  </label>
-
-  <select
-    name="status"
-    value={formData.status}
-    onChange={handleChange}
-    className="form-input"
-  >
-    <option value="Pending">
-      Pending
-    </option>
-
-    <option value="In Progress">
-      In Progress
-    </option>
-
-    <option value="Completed">
-      Completed
-    </option>
-  </select>
-
-</div>
-              
-
-              <div className="followup-full-width">
-                <label className="form-label">
-                  Outcome / Response
-                </label>
-
-                <textarea
-                  name="response"
-                  value={formData.response}
-                  onChange={handleChange}
-                  className="form-input"
-                  rows="4"
-                  placeholder="Enter trainee's employment or outcome information..."
-                />
-              </div>
-
-              <div className="followup-form-actions">
-
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() =>
-                    setShowForm(false)
-                  }
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="primary"
-                  disabled={saving}
-                >
-                  {saving
-                    ? "Saving..."
-                    : "Save Follow-up"}
-                </button>
-
-              </div>
-
-            </form>
+          <div className="avatar small">
+            {traineeName
+              .split(" ")
+              .map((x) => x[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase()}
           </div>
-        </div>,
-         document.body
-      )}
-      
 
-      {/* EDIT FOLLOW-UP MODAL */}
+          <div>
+            <h3 className="followup-trainee-name">
+              {traineeName}
+            </h3>
 
-      {showEditForm && editingFollowup && (
-        <div
-          className="followup-modal-overlay"
-          onClick={() => {
-            setShowEditForm(false);
-            setEditingFollowup(null);
-          }}
-        >
-          <div
-            className="followup-modal"
-            onClick={(e) =>
-              e.stopPropagation()
+            <span className="followup-trainee-id">
+              Trainee ID: {group.trainee_id}
+            </span>
+          </div>
+
+        </div>
+
+        <div className="followup-trainee-actions">
+
+          {/* CONTACT */}
+
+          <button
+            type="button"
+            className="followup-contact-button"
+            onClick={() => {
+
+              const phone =
+                trainee?.phone ||
+                trainee?.mobile ||
+                trainee?.phone_number ||
+                trainee?.mobile_number ||
+                trainee?.contact_number;
+
+              if (!phone) {
+                alert(
+                  "Trainee phone number is not available."
+                );
+                return;
+              }
+
+              window.location.href =
+                `tel:${phone}`;
+            }}
+          >
+            📞 Contact
+          </button>
+
+          {/* HISTORY */}
+
+          <button
+            type="button"
+            className="followup-history-button"
+            onClick={() =>
+              handleViewHistory(
+                group.followups[0]
+              )
             }
           >
+            👁 History
+          </button>
 
-            <div className="followup-modal-header">
+        </div>
 
-              <div>
-                <h3>
-                  Edit follow-up
-                </h3>
+      </div>
 
-                <p>
-                  Update trainee outcome follow-up
-                </p>
-              </div>
 
-              <button
-                type="button"
-                className="followup-close-button"
-                onClick={() => {
-                  setShowEditForm(false);
-                  setEditingFollowup(null);
-                }}
-              >
-                ×
-              </button>
+      {/* =========================================
+          3 / 6 / 12 MONTH FOLLOW-UPS
+      ========================================= */}
 
-            </div>
+      <div className="followup-milestones">
 
-            <form
-              onSubmit={handleEditFollowup}
-              className="followup-form"
+        {group.followups.map((f) => {
+
+          const statusClass =
+            getStatusClass(f);
+
+          const statusText =
+            getStatusText(f);
+
+          return (
+            <div
+              key={f.followup_id}
+              className="followup-milestone"
             >
 
-              <div>
-                <label className="form-label">
-                  Trainee *
-                </label>
+              {/* LEFT */}
 
-                <select
-                  value={
-                    editingFollowup.trainee_id ||
-                    ""
-                  }
-                  onChange={(e) =>
-                    setEditingFollowup(
-                      (prev) => ({
-                        ...prev,
-                        trainee_id:
-                          e.target.value
-                      })
-                    )
-                  }
-                  className="form-input"
-                  required
-                >
-                  <option value="">
-                    Select trainee
-                  </option>
+              <div className="followup-milestone-info">
 
-                  {trainees.map((t) => {
-                    const traineeId =
-                      getTraineeId(t);
+                <div className="followup-type">
+                  {f.type}
+                </div>
 
-                    return (
-                      <option
-                        key={traineeId}
-                        value={traineeId}
-                      >
-                        {getTraineeName(t)} (
-                        {traineeId}
-                        )
-                      </option>
-                    );
-                  })}
-                </select>
+                <div className="followup-due-date">
+                  Due Date:{" "}
+                  <strong>
+                    {formatDate(
+                      f.followup_date
+                    )}
+                  </strong>
+                </div>
+
+                {f.employer && (
+                  <div>
+                    <strong>
+                      Employer:
+                    </strong>{" "}
+                    {f.employer}
+                  </div>
+                )}
+
+                {f.job_role && (
+                  <div>
+                    <strong>
+                      Job Role:
+                    </strong>{" "}
+                    {f.job_role}
+                  </div>
+                )}
+
+                {f.current_salary != null && (
+                  <div>
+                    <strong>
+                      Salary:
+                    </strong>{" "}
+                    ₹
+                    {Number(
+                      f.current_salary
+                    ).toLocaleString("en-IN")}
+                  </div>
+                )}
+
               </div>
 
-              <div>
-                <label className="form-label">
-                  Follow-up Date *
-                </label>
 
-                <input
-                  type="date"
-                  value={
-                    editingFollowup.followup_date
-                      ? String(
-                          editingFollowup.followup_date
-                        ).slice(0, 10)
-                      : ""
-                  }
-                  onChange={(e) =>
-                    setEditingFollowup(
-                      (prev) => ({
-                        ...prev,
-                        followup_date:
-                          e.target.value
-                      })
-                    )
-                  }
-                  className="form-input"
-                  required
-                />
-              </div>
+              {/* MIDDLE - STATUS */}
 
-              <div>
-                <label className="form-label">
-                  Follow-up Type *
-                </label>
+              <div className="followup-milestone-status">
 
-                <select
-                  value={
-                    editingFollowup.type ||
-                    "Employment"
-                  }
-                  onChange={(e) =>
-                    setEditingFollowup(
-                      (prev) => ({
-                        ...prev,
-                        type: e.target.value
-                      })
-                    )
-                  }
-                  className="form-input"
-                  required
-                >
-                  <option value="Employment">
-                    Employment
-                  </option>
-
-                  <option value="Self Employment">
-                    Self Employment
-                  </option>
-
-                  <option value="Job Retention">
-                    Job Retention
-                  </option>
-
-                  <option value="Wage Progression">
-                    Wage Progression
-                  </option>
-
-                  <option value="Training Relevance">
-                    Training Relevance
-                  </option>
-
-                  <option value="Support Needed">
-                    Support Needed
-                  </option>
-
-                  <option value="Other">
-                    Other
-                  </option>
-                </select>
-              </div>
-
-              <div>
-                <label className="form-label">
-                  Source
-                </label>
-
-                <select
-                  value={
-                    editingFollowup.source ||
-                    ""
-                  }
-                  onChange={(e) =>
-                    setEditingFollowup(
-                      (prev) => ({
-                        ...prev,
-                        source: e.target.value
-                      })
-                    )
-                  }
-                  className="form-input"
-                >
-                  <option value="">
-                    Select source
-                  </option>
-
-                  <option value="Email">
-                    Email
-                  </option>
-
-                  <option value="Employer">
-                    Employer
-                  </option>
-
-                  <option value="Trainee">
-                    Trainee
-                  </option>
-                </select>
-              </div>
-
-              <div>
-                <label className="form-label">
+                <label>
                   Status
                 </label>
 
                 <select
                   value={
-                    editingFollowup.status ||
-                    "Pending"
+                    f.status || "Pending"
                   }
+                  disabled={saving}
                   onChange={(e) =>
-                    setEditingFollowup(
-                      (prev) => ({
-                        ...prev,
-                        status: e.target.value
-                      })
+                    handleStatusChange(
+                      f,
+                      e.target.value
                     )
                   }
-                  className="form-input"
                 >
+
                   <option value="Pending">
                     Pending
                   </option>
@@ -10872,351 +12002,1589 @@ function FollowUps({
                   <option value="Completed">
                     Completed
                   </option>
+
                 </select>
-              </div>
 
-              <div className="followup-full-width">
-                <label className="form-label">
-                  Outcome / Response
-                </label>
-
-                <textarea
-                  value={
-                    editingFollowup.response ||
-                    ""
-                  }
-                  onChange={(e) =>
-                    setEditingFollowup(
-                      (prev) => ({
-                        ...prev,
-                        response:
-                          e.target.value
-                      })
-                    )
-                  }
-                  className="form-input"
-                  rows="4"
-                  placeholder="Enter trainee's employment or outcome information..."
-                />
-              </div>
-
-              <div className="followup-form-actions">
-
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => {
-                    setShowEditForm(false);
-                    setEditingFollowup(null);
-                  }}
+                <span
+                  className={`followup-status-label ${statusClass}`}
                 >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="primary"
-                  disabled={saving}
-                >
-                  {saving
-                    ? "Updating..."
-                    : "Update Follow-up"}
-                </button>
+                  {statusText}
+                </span>
 
               </div>
 
-            </form>
-          </div>
-        </div>
-      )}
 
-      {/* FOLLOW-UP QUEUE */}
+              {/* RIGHT - ACTIONS */}
 
-      <Card
-        title="Follow-up queue"
-        subtitle={`${followups.length} follow-up record${
-          followups.length !== 1
-            ? "s"
-            : ""
-        } from database`}
-      >
-        <div className="follow-list large">
+              <div className="followup-milestone-actions">
 
-          {followups.length === 0 ? (
-            <p>
-              No follow-up records found.
-            </p>
-          ) : (
-            followups.map((f) => {
+                {!isCompleted(f) && (
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={saving}
+                    onClick={() => {
 
-              const trainee =
-                trainees.find(
-                  (t) =>
-                    String(
-                      getTraineeId(t)
-                    ) ===
-                    String(
-                      f.trainee_id
-                    )
-                );
+                      if (isPending(f)) {
+                        handleStartFollowup(f);
+                      } else {
+                        openFollowup(f);
+                      }
 
-              return (
-                <div
-                  className="follow followup-card"
-                  key={f.followup_id}
-                >
+                    }}
+                  >
+                    {isInProgress(f)
+                      ? "Continue"
+                      : "Start Follow-up"}
+                  </button>
+                )}
 
-                  {/* AVATAR */}
+                {isInProgress(f) && (
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={saving}
+                    onClick={() =>
+                      openFollowup(f)
+                    }
+                  >
+                    Mark Completed
+                  </button>
+                )}
 
-                  <div className="avatar small">
-                    {trainee
-                      ? getTraineeName(
-                          trainee
+                {isAdmin && (
+                  <>
+                    <button
+                      type="button"
+                      className="followup-edit-button"
+                      onClick={() => {
+
+                        setEditingFollowup({
+                          ...f
+                        });
+
+                        setShowEditForm(
+                          true
+                        );
+
+                      }}
+                    >
+                      ✎ Edit
+                    </button>
+
+                    <button
+                      type="button"
+                      className="followup-delete-button"
+                      onClick={() =>
+                        handleDeleteFollowup(
+                          f.followup_id
                         )
-                          .split(" ")
-                          .map(
-                            (x) =>
-                              x[0]
-                          )
-                          .join("")
-                          .slice(0, 2)
-                          .toUpperCase()
-                      : String(
-                          f.trainee_id ||
-                            "NA"
-                        )
-                          .slice(0, 2)
-                          .toUpperCase()}
-                  </div>
+                      }
+                    >
+                      🗑 Delete
+                    </button>
+                  </>
+                )}
 
-                  {/* DETAILS */}
+              </div>
 
-                  <div className="followup-details">
-
-                    <b className="followup-trainee-name">
-                      {trainee
-                        ? getTraineeName(
-                            trainee
-                          )
-                        : "Trainee " +
-                          f.trainee_id}
-                    </b>
-
-                    <span>
-                      <strong>
-                        Trainee ID:
-                      </strong>{" "}
-                      {f.trainee_id}
-                    </span>
-
-                    <span>
-                      <strong>
-                        Type:
-                      </strong>{" "}
-                      {f.type ||
-                        "Not specified"}
-                    </span>
-
-                    <span>
-                      <strong>
-                        Follow-up Date:
-                      </strong>{" "}
-                      {f.followup_date
-                        ? new Date(
-                            f.followup_date
-                          ).toLocaleDateString(
-                            "en-IN",
-                            {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric"
-                            }
-                          )
-                        : "Not specified"}
-                    </span>
-
-                    <span>
-                      <strong>
-                        Outcome:
-                      </strong>{" "}
-                      {f.response ||
-                        "No response recorded"}
-                    </span>
-
-                    <span>
-                      <strong>
-                        Source:
-                      </strong>{" "}
-                      {f.source ||
-                        "Not specified"}
-                    </span>
-
-                  </div>
-
-                
-
-                 {/* STATUS */}
-
-<div className="followup-status">
-
-  <label>
-    Status
-  </label>
-
-  <select
-    value={f.status || ""}
-    onChange={async (e) => {
-      const newStatus = e.target.value;
-
-      try {
-        const response = await authFetch(
-          `${API_URL}/api/followups/${f.followup_id}`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              trainee_id: f.trainee_id,
-              followup_date: f.followup_date,
-              type: f.type,
-              response: f.response || "",
-              source: f.source || "",
-              status: newStatus
-            })
-          }
-        );
-
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            result.error ||
-            "Failed to update follow-up"
+            </div>
           );
-        }
+        })}
 
-        setFollowups((prev) =>
-          prev.map((item) =>
-            item.followup_id ===
-            result.followup.followup_id
-              ? result.followup
-              : item
-          )
-        );
+      </div>
 
-      } catch (error) {
-        console.error(error);
+    </div>
+  );
+})
 
-        alert(
-          "ERROR: " +
-          error.message
-        );
-      }
-    }}
-  >
-    <option value="">
-      Select status
-    </option>
-
-    <option value="Pending">
-      Pending
-    </option>
-
-    <option value="In Progress">
-      In Progress
-    </option>
-
-    <option value="Completed">
-      Completed
-    </option>
-  </select>
-
-  <button
-  type="button"
-  className="followup-contact-button"
-  onClick={() => {
-    const phone = String(
-      trainee?.phone || ""
-    ).replace(/\D/g, "");
-
-    if (phone.length === 10) {
-      window.location.href =
-        `tel:+91${phone}`;
-    } else {
-      alert(
-        "Trainee phone number is unavailable."
-      );
-    }
-  }}
->
-  <span>📞 Contact Trainee</span>
-
-  <span className="followup-contact-number">
-    {trainee?.phone
-      ? `+91 ${String(trainee.phone).replace(/\D/g, "")}`
-      : "Number unavailable"}
-  </span>
-</button>
-
-</div>
-
-                  {/* ADMIN ACTIONS */}
-
-                  {isAdmin && (
-                    <div className="followup-actions">
-
-                      <button
-                        type="button"
-                        className="followup-edit-button"
-                        onClick={() => {
-                          setEditingFollowup(
-                            {
-                              ...f
-                            }
-                          );
-
-                          setShowEditForm(
-                            true
-                          );
-                        }}
-                      >
-                        <span>✎</span>
-                        <span>
-                          Edit
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        className="followup-delete-button"
-                        onClick={() =>
-                          handleDeleteFollowup(
-                            f.followup_id
-                          )
-                        }
-                      >
-                        <span>🗑</span>
-                        <span>
-                          Delete
-                        </span>
-                      </button>
-
-                    </div>
-                  )}
-
-                </div>
-              );
-            })
           )}
 
         </div>
+
       </Card>
+
+      {/* =====================================================
+          START / COMPLETE FOLLOW-UP MODAL
+      ===================================================== */}
+
+      {showFollowupModal &&
+        selectedFollowup &&
+        createPortal(
+          <div
+            className="followup-modal-overlay"
+            onClick={() =>
+              setShowFollowupModal(false)
+            }
+          >
+
+            <div
+              className="followup-modal"
+              onClick={(e) =>
+                e.stopPropagation()
+              }
+            >
+
+              <div className="followup-modal-header">
+
+                <div>
+
+                  <h3>
+                    {selectedFollowup.type}
+                  </h3>
+
+                  <p>
+                    {findTrainee(
+                      selectedFollowup.trainee_id
+                    )
+                      ? getTraineeName(
+                          findTrainee(
+                            selectedFollowup.trainee_id
+                          )
+                        )
+                      : "Trainee " +
+                        selectedFollowup.trainee_id}
+
+                    {" • "}
+
+                    Due{" "}
+                    {formatDate(
+                      selectedFollowup.followup_date
+                    )}
+                  </p>
+
+                </div>
+
+                <button
+                  type="button"
+                  className="followup-close-button"
+                  onClick={() =>
+                    setShowFollowupModal(false)
+                  }
+                >
+                  ×
+                </button>
+
+              </div>
+
+              <div
+                className="followup-form"
+              >
+
+                {/* EMPLOYMENT STATUS */}
+
+                <div>
+                  <label className="form-label">
+                    Employment Status *
+                  </label>
+
+                  <select
+                    className="form-input"
+                    value={
+                      followupForm.employment_status
+                    }
+                    onChange={(e) =>
+                      setFollowupForm(
+                        (prev) => ({
+                          ...prev,
+                          employment_status:
+                            e.target.value
+                        })
+                      )
+                    }
+                  >
+
+                    <option value="">
+                      Select status
+                    </option>
+
+                    <option value="Employed">
+                      Still Employed
+                    </option>
+
+                    <option value="Not Employed">
+                      No Longer Employed
+                    </option>
+
+                    <option value="Self Employed">
+                      Self Employed
+                    </option>
+
+                    <option value="Unemployed">
+                      Unemployed
+                    </option>
+
+                  </select>
+                </div>
+
+                {/* EMPLOYER */}
+
+                <div>
+                  <label className="form-label">
+                    Current Employer
+                  </label>
+
+                  <input
+                    className="form-input"
+                    value={
+                      followupForm.employer
+                    }
+                    onChange={(e) =>
+                      setFollowupForm(
+                        (prev) => ({
+                          ...prev,
+                          employer:
+                            e.target.value
+                        })
+                      )
+                    }
+                    placeholder="Enter current employer"
+                  />
+                </div>
+
+                {/* JOB ROLE */}
+
+                <div>
+                  <label className="form-label">
+                    Current Job Role
+                  </label>
+
+                  <input
+                    className="form-input"
+                    value={
+                      followupForm.job_role
+                    }
+                    onChange={(e) =>
+                      setFollowupForm(
+                        (prev) => ({
+                          ...prev,
+                          job_role:
+                            e.target.value
+                        })
+                      )
+                    }
+                    placeholder="Enter current job role"
+                  />
+                </div>
+
+                {/* SALARY */}
+
+                <div>
+                  <label className="form-label">
+                    Current Salary
+                  </label>
+
+                  <input
+                    type="number"
+                    min="0"
+                    className="form-input"
+                    value={
+                      followupForm.current_salary
+                    }
+                    onChange={(e) =>
+                      setFollowupForm(
+                        (prev) => ({
+                          ...prev,
+                          current_salary:
+                            e.target.value
+                        })
+                      )
+                    }
+                    placeholder="Enter current salary"
+                  />
+                </div>
+
+                {/* SALARY UPDATED */}
+
+                <div>
+                  <label className="form-label">
+                    Salary Changed?
+                  </label>
+
+                  <select
+                    className="form-input"
+                    value={
+                      followupForm.salary_updated
+                        ? "Yes"
+                        : "No"
+                    }
+                    onChange={(e) =>
+                      setFollowupForm(
+                        (prev) => ({
+                          ...prev,
+                          salary_updated:
+                            e.target.value ===
+                            "Yes"
+                        })
+                      )
+                    }
+                  >
+
+                    <option value="No">
+                      No
+                    </option>
+
+                    <option value="Yes">
+                      Yes
+                    </option>
+
+                  </select>
+                </div>
+
+                {/* SOURCE */}
+
+                <div>
+                  <label className="form-label">
+                    Source
+                  </label>
+
+                  <select
+                    className="form-input"
+                    value={
+                      followupForm.source
+                    }
+                    onChange={(e) =>
+                      setFollowupForm(
+                        (prev) => ({
+                          ...prev,
+                          source:
+                            e.target.value
+                        })
+                      )
+                    }
+                  >
+
+                    <option value="Trainee">
+                      Trainee
+                    </option>
+
+                    <option value="Employer">
+                      Employer
+                    </option>
+
+                    <option value="Email">
+                      Email
+                    </option>
+
+                  </select>
+                </div>
+
+                {/* REASON */}
+
+                <div className="followup-full-width">
+
+                  <label className="form-label">
+                    Reason / Notes
+                  </label>
+
+                  <textarea
+                    className="form-input"
+                    rows="3"
+                    value={
+                      followupForm.reason
+                    }
+                    onChange={(e) =>
+                      setFollowupForm(
+                        (prev) => ({
+                          ...prev,
+                          reason:
+                            e.target.value
+                        })
+                      )
+                    }
+                    placeholder="Enter reason, changes or notes..."
+                  />
+
+                </div>
+
+                {/* RESPONSE */}
+
+                <div className="followup-full-width">
+
+                  <label className="form-label">
+                    Outcome / Response
+                  </label>
+
+                  <textarea
+                    className="form-input"
+                    rows="4"
+                    value={
+                      followupForm.response
+                    }
+                    onChange={(e) =>
+                      setFollowupForm(
+                        (prev) => ({
+                          ...prev,
+                          response:
+                            e.target.value
+                        })
+                      )
+                    }
+                    placeholder="Enter the actual follow-up response..."
+                  />
+
+                </div>
+
+                {/* BUTTONS */}
+
+                <div className="followup-form-actions">
+
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() =>
+                      setShowFollowupModal(
+                        false
+                      )
+                    }
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={saving}
+                    onClick={() =>
+                      handleSaveFollowup(
+                        false
+                      )
+                    }
+                  >
+                    {saving
+                      ? "Saving..."
+                      : "Save Progress"}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={saving}
+                    onClick={() =>
+                      handleSaveFollowup(
+                        true
+                      )
+                    }
+                  >
+                    {saving
+                      ? "Completing..."
+                      : "Mark Completed"}
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>,
+          document.body
+        )}
+
+      {/* =====================================================
+          HISTORY MODAL
+      ===================================================== */}
+
+      {showHistoryModal &&
+        historyTrainee &&
+        createPortal(
+          <div
+            className="followup-modal-overlay"
+            onClick={() =>
+              setShowHistoryModal(false)
+            }
+          >
+
+            <div
+              className="followup-modal"
+              onClick={(e) =>
+                e.stopPropagation()
+              }
+            >
+
+              <div className="followup-modal-header">
+
+                <div>
+
+                  <h3>
+                    Follow-up History
+                  </h3>
+
+                  <p>
+                    {historyTrainee.trainee
+                      ? getTraineeName(
+                          historyTrainee.trainee
+                        )
+                      : "Trainee " +
+                        historyTrainee.trainee_id}
+                    {" • "}
+                    {historyTrainee.trainee_id}
+                  </p>
+
+                </div>
+
+                <button
+                  type="button"
+                  className="followup-close-button"
+                  onClick={() =>
+                    setShowHistoryModal(
+                      false
+                    )
+                  }
+                >
+                  ×
+                </button>
+
+              </div>
+
+              <div
+                style={{
+                  maxHeight: "60vh",
+                  overflowY: "auto"
+                }}
+              >
+
+                {followups
+                  .filter(
+                    (f) =>
+                      String(
+                        f.trainee_id
+                      ) ===
+                      String(
+                        historyTrainee.trainee_id
+                      )
+                  )
+                  .sort(
+                    (a, b) =>
+                      normalizeDate(
+                        a.followup_date
+                      ).localeCompare(
+                        normalizeDate(
+                          b.followup_date
+                        )
+                      )
+                  )
+                  .map((f) => (
+
+                    <div
+                      key={
+                        f.followup_id
+                      }
+                      style={{
+                        padding:
+                          "14px",
+                        marginBottom:
+                          "10px",
+                        border:
+                          "1px solid #ddd",
+                        borderRadius:
+                          "10px"
+                      }}
+                    >
+
+                      <strong>
+                        {f.type}
+                      </strong>
+
+                      <div>
+                        Date:{" "}
+                        {formatDate(
+                          f.followup_date
+                        )}
+                      </div>
+
+                      <div>
+                        Status:{" "}
+                        {f.status ||
+                          "Pending"}
+                      </div>
+
+                      {f.employment_status && (
+                        <div>
+                          Employment:{" "}
+                          {
+                            f.employment_status
+                          }
+                        </div>
+                      )}
+
+                      {f.employer && (
+                        <div>
+                          Employer:{" "}
+                          {f.employer}
+                        </div>
+                      )}
+
+                      {f.job_role && (
+                        <div>
+                          Role:{" "}
+                          {f.job_role}
+                        </div>
+                      )}
+
+                      {f.current_salary != null && (
+                        <div>
+                          Salary: ₹
+                          {Number(
+                            f.current_salary
+                          ).toLocaleString(
+                            "en-IN"
+                          )}
+                        </div>
+                      )}
+
+                      {f.reason && (
+                        <div>
+                          Reason:{" "}
+                          {f.reason}
+                        </div>
+                      )}
+
+                      {f.response && (
+                        <div>
+                          Response:{" "}
+                          {f.response}
+                        </div>
+                      )}
+
+                    </div>
+
+                  ))}
+
+              </div>
+
+            </div>
+
+          </div>,
+          document.body
+        )}
+
+      {/* =====================================================
+          ADMIN ADD MODAL
+      ===================================================== */}
+
+      {showForm &&
+        isAdmin &&
+        createPortal(
+          <div
+            className="followup-modal-overlay"
+            onClick={() =>
+              setShowForm(false)
+            }
+          >
+
+            <div
+              className="followup-modal"
+              onClick={(e) =>
+                e.stopPropagation()
+              }
+            >
+
+              <div className="followup-modal-header">
+
+                <div>
+
+                  <h3>
+                    Add New Follow-up
+                  </h3>
+
+                  <p>
+                    Create a manual follow-up record
+                  </p>
+
+                </div>
+
+                <button
+                  type="button"
+                  className="followup-close-button"
+                  onClick={() =>
+                    setShowForm(false)
+                  }
+                >
+                  ×
+                </button>
+
+              </div>
+
+              <form
+                onSubmit={
+                  handleAddFollowup
+                }
+                className="followup-form"
+              >
+
+                <div>
+                  <label className="form-label">
+                    Trainee *
+                  </label>
+
+                  <select
+                    name="trainee_id"
+                    value={
+                      formData.trainee_id
+                    }
+                    onChange={
+                      handleChange
+                    }
+                    className="form-input"
+                    required
+                  >
+
+                    <option value="">
+                      Select trainee
+                    </option>
+
+                    {trainees.map(
+                      (t) => {
+
+                        const traineeId =
+                          getTraineeId(
+                            t
+                          );
+
+                        return (
+                          <option
+                            key={
+                              traineeId
+                            }
+                            value={
+                              traineeId
+                            }
+                          >
+                            {getTraineeName(
+                              t
+                            )}{" "}
+                            (
+                            {traineeId}
+                            )
+                          </option>
+                        );
+                      }
+                    )}
+
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    Follow-up Date *
+                  </label>
+
+                  <input
+                    type="date"
+                    name="followup_date"
+                    value={
+                      formData.followup_date
+                    }
+                    onChange={
+                      handleChange
+                    }
+                    className="form-input"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    Follow-up Type *
+                  </label>
+
+                  <select
+                    name="type"
+                    value={
+                      formData.type
+                    }
+                    onChange={
+                      handleChange
+                    }
+                    className="form-input"
+                  >
+
+                    <option value="3-Month Follow-up">
+                      3-Month Follow-up
+                    </option>
+
+                    <option value="6-Month Follow-up">
+                      6-Month Follow-up
+                    </option>
+
+                    <option value="12-Month Follow-up">
+                      12-Month Follow-up
+                    </option>
+
+                    <option value="Employment">
+                      Employment
+                    </option>
+
+                    <option value="Self Employment">
+                      Self Employment
+                    </option>
+
+                    <option value="Job Retention">
+                      Job Retention
+                    </option>
+
+                    <option value="Wage Progression">
+                      Wage Progression
+                    </option>
+
+                    <option value="Training Relevance">
+                      Training Relevance
+                    </option>
+
+                    <option value="Support Needed">
+                      Support Needed
+                    </option>
+
+                    <option value="Other">
+                      Other
+                    </option>
+
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    Source
+                  </label>
+
+                  <select
+                    name="source"
+                    value={
+                      formData.source
+                    }
+                    onChange={
+                      handleChange
+                    }
+                    className="form-input"
+                  >
+
+                    <option value="">
+                      Select source
+                    </option>
+
+                    <option value="Trainee">
+                      Trainee
+                    </option>
+
+                    <option value="Employer">
+                      Employer
+                    </option>
+
+                    <option value="Email">
+                      Email
+                    </option>
+
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    Status
+                  </label>
+
+                  <select
+                    name="status"
+                    value={
+                      formData.status
+                    }
+                    onChange={
+                      handleChange
+                    }
+                    className="form-input"
+                  >
+
+                    <option value="Pending">
+                      Pending
+                    </option>
+
+                    <option value="In Progress">
+                      In Progress
+                    </option>
+
+                    <option value="Completed">
+                      Completed
+                    </option>
+
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    Employment Status
+                  </label>
+
+                  <select
+                    name="employment_status"
+                    value={
+                      formData.employment_status
+                    }
+                    onChange={
+                      handleChange
+                    }
+                    className="form-input"
+                  >
+
+                    <option value="">
+                      Select status
+                    </option>
+
+                    <option value="Employed">
+                      Employed
+                    </option>
+
+                    <option value="Not Employed">
+                      Not Employed
+                    </option>
+
+                    <option value="Self Employed">
+                      Self Employed
+                    </option>
+
+                    <option value="Unemployed">
+                      Unemployed
+                    </option>
+
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    Employer
+                  </label>
+
+                  <input
+                    name="employer"
+                    value={
+                      formData.employer
+                    }
+                    onChange={
+                      handleChange
+                    }
+                    className="form-input"
+                    placeholder="Employer name"
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    Job Role
+                  </label>
+
+                  <input
+                    name="job_role"
+                    value={
+                      formData.job_role
+                    }
+                    onChange={
+                      handleChange
+                    }
+                    className="form-input"
+                    placeholder="Job role"
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    Current Salary
+                  </label>
+
+                  <input
+                    type="number"
+                    min="0"
+                    name="current_salary"
+                    value={
+                      formData.current_salary
+                    }
+                    onChange={
+                      handleChange
+                    }
+                    className="form-input"
+                    placeholder="Current salary"
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    Salary Updated?
+                  </label>
+
+                  <select
+                    name="salary_updated"
+                    value={
+                      formData.salary_updated
+                        ? "true"
+                        : "false"
+                    }
+                    onChange={(e) =>
+                      setFormData(
+                        (prev) => ({
+                          ...prev,
+                          salary_updated:
+                            e.target.value ===
+                            "true"
+                        })
+                      )
+                    }
+                    className="form-input"
+                  >
+
+                    <option value="false">
+                      No
+                    </option>
+
+                    <option value="true">
+                      Yes
+                    </option>
+
+                  </select>
+                </div>
+
+                <div className="followup-full-width">
+
+                  <label className="form-label">
+                    Reason
+                  </label>
+
+                  <textarea
+                    name="reason"
+                    value={
+                      formData.reason
+                    }
+                    onChange={
+                      handleChange
+                    }
+                    className="form-input"
+                    rows="3"
+                    placeholder="Reason or notes"
+                  />
+
+                </div>
+
+                <div className="followup-full-width">
+
+                  <label className="form-label">
+                    Response
+                  </label>
+
+                  <textarea
+                    name="response"
+                    value={
+                      formData.response
+                    }
+                    onChange={
+                      handleChange
+                    }
+                    className="form-input"
+                    rows="4"
+                    placeholder="Outcome / response"
+                  />
+
+                </div>
+
+                <div className="followup-form-actions">
+
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() =>
+                      setShowForm(false)
+                    }
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    className="primary"
+                    disabled={saving}
+                  >
+                    {saving
+                      ? "Saving..."
+                      : "Save Follow-up"}
+                  </button>
+
+                </div>
+
+              </form>
+
+            </div>
+
+          </div>,
+          document.body
+        )}
+
+      {/* =====================================================
+          ADMIN EDIT MODAL
+      ===================================================== */}
+
+      {showEditForm &&
+        editingFollowup &&
+        isAdmin &&
+        createPortal(
+          <div
+            className="followup-modal-overlay"
+            onClick={() => {
+              setShowEditForm(false);
+              setEditingFollowup(
+                null
+              );
+            }}
+          >
+
+            <div
+              className="followup-modal"
+              onClick={(e) =>
+                e.stopPropagation()
+              }
+            >
+
+              <div className="followup-modal-header">
+
+                <div>
+
+                  <h3>
+                    Edit Follow-up
+                  </h3>
+
+                  <p>
+                    Update follow-up record
+                  </p>
+
+                </div>
+
+                <button
+                  type="button"
+                  className="followup-close-button"
+                  onClick={() => {
+                    setShowEditForm(
+                      false
+                    );
+                    setEditingFollowup(
+                      null
+                    );
+                  }}
+                >
+                  ×
+                </button>
+
+              </div>
+
+              <form
+                onSubmit={
+                  handleEditFollowup
+                }
+                className="followup-form"
+              >
+
+                <div>
+                  <label className="form-label">
+                    Trainee *
+                  </label>
+
+                  <select
+                    value={
+                      editingFollowup.trainee_id ||
+                      ""
+                    }
+                    onChange={(e) =>
+                      setEditingFollowup(
+                        (prev) => ({
+                          ...prev,
+                          trainee_id:
+                            e.target.value
+                        })
+                      )
+                    }
+                    className="form-input"
+                    required
+                  >
+
+                    <option value="">
+                      Select trainee
+                    </option>
+
+                    {trainees.map(
+                      (t) => {
+
+                        const traineeId =
+                          getTraineeId(
+                            t
+                          );
+
+                        return (
+                          <option
+                            key={
+                              traineeId
+                            }
+                            value={
+                              traineeId
+                            }
+                          >
+                            {getTraineeName(
+                              t
+                            )}{" "}
+                            (
+                            {traineeId}
+                            )
+                          </option>
+                        );
+                      }
+                    )}
+
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    Follow-up Date *
+                  </label>
+
+                  <input
+                    type="date"
+                    value={
+                      normalizeDate(
+                        editingFollowup.followup_date
+                      )
+                    }
+                    onChange={(e) =>
+                      setEditingFollowup(
+                        (prev) => ({
+                          ...prev,
+                          followup_date:
+                            e.target.value
+                        })
+                      )
+                    }
+                    className="form-input"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    Follow-up Type *
+                  </label>
+
+                  <select
+                    value={
+                      editingFollowup.type ||
+                      "3-Month Follow-up"
+                    }
+                    onChange={(e) =>
+                      setEditingFollowup(
+                        (prev) => ({
+                          ...prev,
+                          type:
+                            e.target.value
+                        })
+                      )
+                    }
+                    className="form-input"
+                    required
+                  >
+
+                    <option value="3-Month Follow-up">
+                      3-Month Follow-up
+                    </option>
+
+                    <option value="6-Month Follow-up">
+                      6-Month Follow-up
+                    </option>
+
+                    <option value="12-Month Follow-up">
+                      12-Month Follow-up
+                    </option>
+
+                    <option value="Employment">
+                      Employment
+                    </option>
+
+                    <option value="Self Employment">
+                      Self Employment
+                    </option>
+
+                    <option value="Job Retention">
+                      Job Retention
+                    </option>
+
+                    <option value="Wage Progression">
+                      Wage Progression
+                    </option>
+
+                    <option value="Training Relevance">
+                      Training Relevance
+                    </option>
+
+                    <option value="Support Needed">
+                      Support Needed
+                    </option>
+
+                    <option value="Other">
+                      Other
+                    </option>
+
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    Status
+                  </label>
+
+                  <select
+                    value={
+                      editingFollowup.status ||
+                      "Pending"
+                    }
+                    onChange={(e) =>
+                      setEditingFollowup(
+                        (prev) => ({
+                          ...prev,
+                          status:
+                            e.target.value
+                        })
+                      )
+                    }
+                    className="form-input"
+                  >
+
+                    <option value="Pending">
+                      Pending
+                    </option>
+
+                    <option value="In Progress">
+                      In Progress
+                    </option>
+
+                    <option value="Completed">
+                      Completed
+                    </option>
+
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    Employment Status
+                  </label>
+
+                  <input
+                    value={
+                      editingFollowup.employment_status ||
+                      ""
+                    }
+                    onChange={(e) =>
+                      setEditingFollowup(
+                        (prev) => ({
+                          ...prev,
+                          employment_status:
+                            e.target.value
+                        })
+                      )
+                    }
+                    className="form-input"
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    Employer
+                  </label>
+
+                  <input
+                    value={
+                      editingFollowup.employer ||
+                      ""
+                    }
+                    onChange={(e) =>
+                      setEditingFollowup(
+                        (prev) => ({
+                          ...prev,
+                          employer:
+                            e.target.value
+                        })
+                      )
+                    }
+                    className="form-input"
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    Job Role
+                  </label>
+
+                  <input
+                    value={
+                      editingFollowup.job_role ||
+                      ""
+                    }
+                    onChange={(e) =>
+                      setEditingFollowup(
+                        (prev) => ({
+                          ...prev,
+                          job_role:
+                            e.target.value
+                        })
+                      )
+                    }
+                    className="form-input"
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    Current Salary
+                  </label>
+
+                  <input
+                    type="number"
+                    min="0"
+                    value={
+                      editingFollowup.current_salary ??
+                      ""
+                    }
+                    onChange={(e) =>
+                      setEditingFollowup(
+                        (prev) => ({
+                          ...prev,
+                          current_salary:
+                            e.target.value
+                        })
+                      )
+                    }
+                    className="form-input"
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    Salary Updated
+                  </label>
+
+                  <select
+                    value={
+                      editingFollowup.salary_updated
+                        ? "true"
+                        : "false"
+                    }
+                    onChange={(e) =>
+                      setEditingFollowup(
+                        (prev) => ({
+                          ...prev,
+                          salary_updated:
+                            e.target.value ===
+                            "true"
+                        })
+                      )
+                    }
+                    className="form-input"
+                  >
+
+                    <option value="false">
+                      No
+                    </option>
+
+                    <option value="true">
+                      Yes
+                    </option>
+
+                  </select>
+                </div>
+
+                <div className="followup-full-width">
+
+                  <label className="form-label">
+                    Reason
+                  </label>
+
+                  <textarea
+                    value={
+                      editingFollowup.reason ||
+                      ""
+                    }
+                    onChange={(e) =>
+                      setEditingFollowup(
+                        (prev) => ({
+                          ...prev,
+                          reason:
+                            e.target.value
+                        })
+                      )
+                    }
+                    className="form-input"
+                    rows="3"
+                  />
+
+                </div>
+
+                <div className="followup-full-width">
+
+                  <label className="form-label">
+                    Response
+                  </label>
+
+                  <textarea
+                    value={
+                      editingFollowup.response ||
+                      ""
+                    }
+                    onChange={(e) =>
+                      setEditingFollowup(
+                        (prev) => ({
+                          ...prev,
+                          response:
+                            e.target.value
+                        })
+                      )
+                    }
+                    className="form-input"
+                    rows="4"
+                  />
+
+                </div>
+
+                <div className="followup-form-actions">
+
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => {
+                      setShowEditForm(
+                        false
+                      );
+                      setEditingFollowup(
+                        null
+                      );
+                    }}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    className="primary"
+                    disabled={saving}
+                  >
+                    {saving
+                      ? "Updating..."
+                      : "Update Follow-up"}
+                  </button>
+
+                </div>
+
+              </form>
+
+            </div>
+
+          </div>,
+          document.body
+        )}
 
     </div>
   );
 }
-
 function Impact({ trainees = [], employment = [] }) {
 
   const employedTraineeIds = new Set(
